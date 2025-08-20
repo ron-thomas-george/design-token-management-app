@@ -6,6 +6,7 @@ import TokenTable from './TokenTable'
 import { pushTokensToGitHub } from '../services/githubService'
 import { createSlackService } from '../services/slackService'
 import { debugGitHubPush, testGitHubAuth } from '../utils/debugGitHub'
+import { supabaseTokenService } from '../services/supabaseService'
 
 const TokenManagement = () => {
   const [tokens, setTokens] = useState([])
@@ -14,25 +15,33 @@ const TokenManagement = () => {
   const [editingToken, setEditingToken] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Load tokens from localStorage on mount
+  // Load tokens from Supabase on mount
   useEffect(() => {
-    const savedTokens = localStorage.getItem('designTokens')
-    if (savedTokens) {
-      try {
-        setTokens(JSON.parse(savedTokens))
-      } catch (error) {
-        console.error('Error loading tokens:', error)
-        toast.error('Error loading saved tokens')
-      }
-    }
+    loadTokensFromSupabase()
   }, [])
 
-  // Save tokens to localStorage whenever tokens change
-  useEffect(() => {
-    if (tokens.length > 0) {
-      localStorage.setItem('designTokens', JSON.stringify(tokens))
+  const loadTokensFromSupabase = async () => {
+    setIsLoading(true)
+    try {
+      const result = await supabaseTokenService.getAllTokens()
+      if (result.success) {
+        setTokens(result.data)
+      } else {
+        console.error('Error loading tokens:', result.error)
+        toast.error('Failed to load tokens from database')
+        // Fallback to localStorage if Supabase fails
+        const savedTokens = localStorage.getItem('designTokens')
+        if (savedTokens) {
+          setTokens(JSON.parse(savedTokens))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading tokens:', error)
+      toast.error('Failed to load tokens')
+    } finally {
+      setIsLoading(false)
     }
-  }, [tokens])
+  }
 
   const handleCreateToken = () => {
     setEditingToken(null)
@@ -44,36 +53,67 @@ const TokenManagement = () => {
     setIsDialogOpen(true)
   }
 
-  const handleSaveToken = (tokenData) => {
-    if (editingToken) {
-      // Update existing token
-      setTokens(prev => prev.map(token => 
-        token.id === editingToken.id ? tokenData : token
-      ))
-      setChangedTokens(prev => new Set([...prev, tokenData.id]))
-      toast.success('Token updated successfully')
-      sendSlackNotification([tokenData], 'updated')
-    } else {
-      // Create new token
-      setTokens(prev => [...prev, tokenData])
-      setChangedTokens(prev => new Set([...prev, tokenData.id]))
-      toast.success('Token created successfully')
-      sendSlackNotification([tokenData], 'created')
+  const handleSaveToken = async (tokenData) => {
+    setIsLoading(true)
+    try {
+      if (editingToken) {
+        // Update existing token in Supabase
+        const result = await supabaseTokenService.updateToken(editingToken.id, tokenData)
+        if (result.success) {
+          setTokens(prev => prev.map(token => 
+            token.id === editingToken.id ? result.data : token
+          ))
+          setChangedTokens(prev => new Set([...prev, result.data.id]))
+          toast.success('Token updated successfully')
+          sendSlackNotification([result.data], 'updated')
+        } else {
+          throw new Error(result.error)
+        }
+      } else {
+        // Create new token in Supabase
+        const result = await supabaseTokenService.createToken(tokenData)
+        if (result.success) {
+          setTokens(prev => [...prev, result.data])
+          setChangedTokens(prev => new Set([...prev, result.data.id]))
+          toast.success('Token created successfully')
+          sendSlackNotification([result.data], 'created')
+        } else {
+          throw new Error(result.error)
+        }
+      }
+    } catch (error) {
+      console.error('Error saving token:', error)
+      toast.error(`Failed to save token: ${error.message}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleDeleteToken = (tokenId) => {
+  const handleDeleteToken = async (tokenId) => {
     if (window.confirm('Are you sure you want to delete this token?')) {
       const tokenToDelete = tokens.find(t => t.id === tokenId)
-      setTokens(prev => prev.filter(token => token.id !== tokenId))
-      setChangedTokens(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(tokenId)
-        return newSet
-      })
-      toast.success('Token deleted successfully')
-      if (tokenToDelete) {
-        sendSlackNotification([tokenToDelete], 'deleted')
+      setIsLoading(true)
+      try {
+        const result = await supabaseTokenService.deleteToken(tokenId)
+        if (result.success) {
+          setTokens(prev => prev.filter(token => token.id !== tokenId))
+          setChangedTokens(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(tokenId)
+            return newSet
+          })
+          toast.success('Token deleted successfully')
+          if (tokenToDelete) {
+            sendSlackNotification([tokenToDelete], 'deleted')
+          }
+        } else {
+          throw new Error(result.error)
+        }
+      } catch (error) {
+        console.error('Error deleting token:', error)
+        toast.error(`Failed to delete token: ${error.message}`)
+      } finally {
+        setIsLoading(false)
       }
     }
   }
