@@ -6,6 +6,44 @@ let lastTokenSync = null;
 let currentTokens = [];
 let supabaseConfig = null;
 
+// Auto-configure Supabase on plugin load
+async function autoConfigureSupabase() {
+  try {
+    const response = await fetch('https://design-token-management-app.vercel.app/api/supabase-config');
+    if (!response.ok) {
+      throw new Error('Failed to fetch Supabase config');
+    }
+    
+    const config = await response.json();
+    
+    if (config.configured) {
+      supabaseConfig = {
+        url: config.supabaseUrl,
+        key: config.supabaseKey
+      };
+      
+      figma.ui.postMessage({ 
+        type: 'supabase-auto-configured', 
+        success: true,
+        message: 'Supabase automatically configured'
+      });
+    } else {
+      figma.ui.postMessage({ 
+        type: 'supabase-auto-configured', 
+        success: false,
+        message: 'Supabase not configured on server'
+      });
+    }
+  } catch (error) {
+    console.error('Auto-configure Supabase failed:', error);
+    figma.ui.postMessage({ 
+      type: 'supabase-auto-configured', 
+      success: false,
+      message: 'Failed to auto-configure Supabase'
+    });
+  }
+}
+
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'configure-supabase') {
     supabaseConfig = {
@@ -433,5 +471,6 @@ function parseColor(colorValue) {
   return namedColors[colorValue.toLowerCase()] || { r: 0.5, g: 0.5, b: 0.5 };
 }
 
-// Send initial message to UI
+// Auto-configure Supabase and send initial message to UI
+autoConfigureSupabase();
 figma.ui.postMessage({ type: 'plugin-ready' });

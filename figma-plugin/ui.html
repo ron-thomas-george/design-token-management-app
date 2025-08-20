@@ -515,74 +515,88 @@
     
     // Handle messages from plugin
     window.onmessage = (event) => {
-      const { type, tokens: fetchedTokens, changes, message, error, success, tokenCount, totalTokens } = event.data.pluginMessage;
+      const msg = event.data.pluginMessage;
       
-      switch (type) {
-        case 'plugin-ready':
-          showStatus('Plugin ready', 'info');
-          break;
-          
-        case 'supabase-configured':
-          configureBtn.disabled = false;
-          if (success) {
-            isSupabaseConfigured = true;
-            showStatus(`Supabase connected! Found ${tokenCount} tokens`, 'success');
-            updateConnectionStatus(true, `${tokenCount} tokens available`, 'success');
-            configForm.classList.remove('active');
-          } else {
-            showStatus(`Supabase connection failed: ${error}`, 'error');
-            updateConnectionStatus(false, error, 'error');
-          }
-          break;
-          
-        case 'tokens-fetched':
-          tokens = fetchedTokens || [];
-          fetchBtn.disabled = false;
-          checkChangesBtn.disabled = false;
-          importBtn.disabled = tokens.length === 0;
-          
-          updateConnectionStatus(true, `${tokens.length} tokens loaded`);
-          updateStats(tokens.length);
-          showStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
-          break;
-          
-        case 'changes-detected':
-          currentChanges = changes;
-          checkChangesBtn.disabled = false;
-          syncBtn.disabled = !changes || (changes.added.length === 0 && changes.modified.length === 0 && changes.deleted.length === 0);
-          
-          updateStats(totalTokens, changes);
-          updateChangesSummary(changes);
-          
-          const changeCount = (changes.added.length + changes.modified.length + changes.deleted.length);
-          if (changeCount > 0) {
-            showStatus(`Found ${changeCount} changes`, 'warning');
-          } else {
-            showStatus('No changes detected', 'success');
-          }
-          break;
-          
-        case 'sync-complete':
-          syncBtn.disabled = false;
-          currentChanges = changes;
-          updateStats(totalTokens, changes);
-          updateChangesSummary(changes);
-          showStatus(message, 'success');
-          break;
-          
-        case 'success':
-          importBtn.disabled = false;
-          showStatus(message, 'success');
-          break;
-          
-        case 'error':
-          fetchBtn.disabled = false;
-          checkChangesBtn.disabled = false;
-          syncBtn.disabled = false;
-          importBtn.disabled = false;
-          updateConnectionStatus(false, error || message);
-          showStatus(error || message, 'error');
-          break;
+      if (msg.type === 'plugin-ready') {
+        updateStatus('Plugin ready', 'info');
+      }
+      
+      if (msg.type === 'supabase-auto-configured') {
+        if (msg.success) {
+          updateStatus(msg.message, 'success');
+          document.getElementById('connectionStatus').innerHTML = '🟢 Connected to Supabase';
+          document.getElementById('connectionStatus').className = 'text-green-600 font-medium';
+          // Hide manual configuration section since it's auto-configured
+          document.getElementById('supabaseConfig').style.display = 'none';
+          document.getElementById('configToggle').innerHTML = '✅ Auto-configured';
+          document.getElementById('configToggle').disabled = true;
+        } else {
+          updateStatus(msg.message + ' - Manual configuration available', 'warning');
+          document.getElementById('connectionStatus').innerHTML = '🟡 Manual configuration required';
+          document.getElementById('connectionStatus').className = 'text-yellow-600 font-medium';
+        }
+      }
+      
+      if (msg.type === 'supabase-configured') {
+        configureBtn.disabled = false;
+        if (msg.success) {
+          isSupabaseConfigured = true;
+          updateStatus(`Supabase connected! Found ${msg.tokenCount} tokens`, 'success');
+          updateConnectionStatus(true, `${msg.tokenCount} tokens available`, 'success');
+          configForm.classList.remove('active');
+        } else {
+          updateStatus(`Supabase connection failed: ${msg.error}`, 'error');
+          updateConnectionStatus(false, msg.error, 'error');
+        }
+      }
+      
+      if (msg.type === 'tokens-fetched') {
+        tokens = msg.tokens || [];
+        fetchBtn.disabled = false;
+        checkChangesBtn.disabled = false;
+        importBtn.disabled = tokens.length === 0;
+        
+        updateConnectionStatus(true, `${tokens.length} tokens loaded`);
+        updateStats(tokens.length);
+        updateStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
+      }
+      
+      if (msg.type === 'changes-detected') {
+        currentChanges = msg.changes;
+        checkChangesBtn.disabled = false;
+        syncBtn.disabled = !msg.changes || (msg.changes.added.length === 0 && msg.changes.modified.length === 0 && msg.changes.deleted.length === 0);
+        
+        updateStats(msg.totalTokens, msg.changes);
+        updateChangesSummary(msg.changes);
+        
+        const changeCount = (msg.changes.added.length + msg.changes.modified.length + msg.changes.deleted.length);
+        if (changeCount > 0) {
+          updateStatus(`Found ${changeCount} changes`, 'warning');
+        } else {
+          updateStatus('No changes detected', 'success');
+        }
+      }
+      
+      if (msg.type === 'sync-complete') {
+        syncBtn.disabled = false;
+        currentChanges = msg.changes;
+        updateStats(msg.totalTokens, msg.changes);
+        updateChangesSummary(msg.changes);
+        updateStatus(msg.message, 'success');
+      }
+      
+      if (msg.type === 'success') {
+        importBtn.disabled = false;
+        updateStatus(msg.message, 'success');
+      }
+      
+      if (msg.type === 'error') {
+        fetchBtn.disabled = false;
+        checkChangesBtn.disabled = false;
+        syncBtn.disabled = false;
+        importBtn.disabled = false;
+        updateConnectionStatus(false, msg.error || msg.message);
+        updateStatus(msg.error || msg.message, 'error');
       }
     };
     
