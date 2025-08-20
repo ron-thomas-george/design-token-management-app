@@ -1,6 +1,6 @@
 {
-  "name": "Design Token Importer",
-  "id": "design-token-importer",
+  "name": "Design Token Sync",
+  "id": "design-token-sync",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
@@ -11,8 +11,8 @@
   ],
   "networkAccess": {
     "allowedDomains": [
-      "https://api.github.com",
-      "localhost:3000"
+      "https://localhost:3000",
+      "https://design-token-management-app.vercel.app"
     ]
   }
 }

@@ -2,80 +2,83 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Design Token Importer</title>
+  <title>Design Token Sync</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-    
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
       padding: 16px;
       background: #f8f9fa;
-      font-size: 14px;
-      line-height: 1.4;
+      color: #333;
+      font-size: 13px;
     }
     
     .container {
       max-width: 100%;
     }
     
-    .header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    
-    .header h1 {
-      margin: 0 0 8px 0;
-      font-size: 18px;
+    h1 {
+      font-size: 16px;
       font-weight: 600;
+      margin: 0 0 16px 0;
       color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
-    .header p {
-      margin: 0;
-      color: #666;
+    .section {
+      background: white;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid #e1e5e9;
+    }
+    
+    .section h2 {
       font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 10px 0;
+      color: #333;
     }
     
     .input-group {
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
     
     .input-group label {
       display: block;
-      margin-bottom: 6px;
+      font-size: 12px;
       font-weight: 500;
-      color: #333;
-      font-size: 13px;
+      margin-bottom: 4px;
+      color: #555;
     }
     
     .input-group input {
       width: 100%;
-      padding: 8px 12px;
+      padding: 6px 8px;
       border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 13px;
-      background: white;
+      border-radius: 4px;
+      font-size: 12px;
+      box-sizing: border-box;
     }
     
     .input-group input:focus {
       outline: none;
       border-color: #0066cc;
-      box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
     }
     
     .button {
-      width: 100%;
-      padding: 10px 16px;
       background: #0066cc;
       color: white;
       border: none;
-      border-radius: 6px;
-      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
       font-weight: 500;
       cursor: pointer;
+      width: 100%;
+      margin-bottom: 6px;
       transition: background-color 0.2s;
     }
     
@@ -89,21 +92,45 @@
     }
     
     .button.secondary {
-      background: #f1f3f4;
-      color: #333;
-      margin-top: 8px;
+      background: #6c757d;
     }
     
     .button.secondary:hover {
-      background: #e8eaed;
+      background: #5a6268;
+    }
+    
+    .button.success {
+      background: #28a745;
+    }
+    
+    .button.success:hover {
+      background: #218838;
+    }
+    
+    .button.warning {
+      background: #ffc107;
+      color: #212529;
+    }
+    
+    .button.warning:hover {
+      background: #e0a800;
+    }
+    
+    .button-row {
+      display: flex;
+      gap: 6px;
+    }
+    
+    .button-row .button {
+      flex: 1;
+      margin-bottom: 0;
     }
     
     .status {
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 16px;
-      font-size: 13px;
-      text-align: center;
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-size: 12px;
     }
     
     .status.success {
@@ -118,263 +145,449 @@
       border: 1px solid #f5c6cb;
     }
     
-    .status.loading {
+    .status.info {
       background: #d1ecf1;
       color: #0c5460;
       border: 1px solid #bee5eb;
     }
     
-    .token-preview {
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 16px;
-      max-height: 200px;
-      overflow-y: auto;
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
     }
     
-    .token-item {
+    .connection-status {
       display: flex;
       align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    
-    .token-item:last-child {
-      border-bottom: none;
-    }
-    
-    .token-color {
-      width: 16px;
-      height: 16px;
-      border-radius: 3px;
-      margin-right: 8px;
-      border: 1px solid #ddd;
-    }
-    
-    .token-info {
-      flex: 1;
-    }
-    
-    .token-name {
-      font-weight: 500;
       font-size: 12px;
-      color: #333;
+      margin-bottom: 10px;
     }
     
-    .token-value {
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-dot.connected {
+      background: #28a745;
+    }
+    
+    .status-dot.disconnected {
+      background: #dc3545;
+    }
+    
+    .status-dot.warning {
+      background: #ffc107;
+    }
+    
+    .token-stats {
+      display: flex;
+      justify-content: space-between;
+      background: #f8f9fa;
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-weight: 600;
+      font-size: 14px;
+      color: #0066cc;
+    }
+    
+    .stat-label {
+      color: #666;
+      margin-top: 2px;
+    }
+    
+    .changes-summary {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+    
+    .changes-summary h3 {
+      margin: 0 0 6px 0;
+      font-size: 12px;
+      color: #856404;
+    }
+    
+    .change-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .collapsible {
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .collapsible:hover {
+      background: #f8f9fa;
+    }
+    
+    .config-form {
+      display: none;
+    }
+    
+    .config-form.active {
+      display: block;
+    }
+    
+    .toggle-text {
       font-size: 11px;
       color: #666;
-    }
-    
-    .loading-spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid #f3f3f3;
-      border-top: 2px solid #0066cc;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-right: 8px;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>Design Token Importer</h1>
-      <p>Import design tokens from your Token Management System</p>
+    <h1>🎨 Design Token Sync</h1>
+    
+    <!-- Supabase Configuration -->
+    <div class="section">
+      <h2 class="collapsible" onclick="toggleConfig()">⚙️ Supabase Configuration</h2>
+      <div class="config-form" id="configForm">
+        <div class="input-group">
+          <label for="supabaseUrl">Supabase URL</label>
+          <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
+        </div>
+        <div class="input-group">
+          <label for="supabaseKey">Anon Key</label>
+          <input type="password" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs...">
+        </div>
+        <button class="button" id="configureBtn">🔗 Connect to Supabase</button>
+        <div class="toggle-text">Optional: Configure for direct Supabase access</div>
+      </div>
     </div>
     
-    <div id="status" class="status" style="display: none;"></div>
-    
-    <div class="input-group">
-      <label for="apiUrl">API URL</label>
-      <input 
-        type="text" 
-        id="apiUrl" 
-        placeholder="http://localhost:3000/api/tokens"
-        value="http://localhost:3000/api/tokens"
-      >
+    <!-- Connection Status -->
+    <div class="section">
+      <h2>Connection Status</h2>
+      <div class="connection-status">
+        <div class="status-dot disconnected" id="statusDot"></div>
+        <span id="statusText">Not connected</span>
+      </div>
+      <div id="connectionDetails" class="hidden"></div>
     </div>
     
-    <button id="fetchTokens" class="button">
-      <span id="fetchText">Fetch Tokens</span>
-      <span id="fetchSpinner" class="loading-spinner" style="display: none;"></span>
-    </button>
-    
-    <div id="tokenPreview" class="token-preview" style="display: none;">
-      <div id="tokenList"></div>
+    <!-- Token Statistics -->
+    <div class="section" id="statsSection" style="display: none;">
+      <h2>Token Overview</h2>
+      <div class="token-stats">
+        <div class="stat-item">
+          <div class="stat-number" id="totalTokens">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" id="addedTokens">0</div>
+          <div class="stat-label">Added</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" id="modifiedTokens">0</div>
+          <div class="stat-label">Modified</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" id="deletedTokens">0</div>
+          <div class="stat-label">Deleted</div>
+        </div>
+      </div>
     </div>
     
-    <button id="importTokens" class="button" style="display: none;">
-      Import to Figma
-    </button>
+    <!-- Changes Summary -->
+    <div id="changesSummary" class="changes-summary hidden">
+      <h3>📋 Detected Changes</h3>
+      <div id="changesContent"></div>
+    </div>
     
-    <button id="closePlugin" class="button secondary">
-      Close Plugin
-    </button>
+    <!-- Actions -->
+    <div class="section">
+      <h2>Actions</h2>
+      <button class="button" id="fetchBtn">📥 Fetch Latest Tokens</button>
+      <div class="button-row">
+        <button class="button warning" id="checkChangesBtn" disabled>🔍 Check Changes</button>
+        <button class="button success" id="syncBtn" disabled>🔄 Sync Changes</button>
+      </div>
+      <button class="button" id="importBtn" disabled>🚀 Import All to Figma</button>
+    </div>
+    
+    <!-- Status Messages -->
+    <div id="statusMessage"></div>
+    
+    <!-- Close -->
+    <div class="section">
+      <button class="button secondary" id="closeBtn">Close Plugin</button>
+    </div>
   </div>
 
   <script>
-    let currentTokens = [];
+    let tokens = [];
+    let currentChanges = null;
+    let isSupabaseConfigured = false;
     
-    const statusEl = document.getElementById('status');
-    const fetchBtn = document.getElementById('fetchTokens');
-    const fetchText = document.getElementById('fetchText');
-    const fetchSpinner = document.getElementById('fetchSpinner');
-    const importBtn = document.getElementById('importTokens');
-    const closeBtn = document.getElementById('closePlugin');
-    const previewEl = document.getElementById('tokenPreview');
-    const tokenListEl = document.getElementById('tokenList');
-    const apiUrlInput = document.getElementById('apiUrl');
+    // DOM elements
+    const configForm = document.getElementById('configForm');
+    const supabaseUrl = document.getElementById('supabaseUrl');
+    const supabaseKey = document.getElementById('supabaseKey');
+    const configureBtn = document.getElementById('configureBtn');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const checkChangesBtn = document.getElementById('checkChangesBtn');
+    const syncBtn = document.getElementById('syncBtn');
+    const importBtn = document.getElementById('importBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const connectionDetails = document.getElementById('connectionDetails');
+    const statsSection = document.getElementById('statsSection');
+    const changesSummary = document.getElementById('changesSummary');
+    const changesContent = document.getElementById('changesContent');
     
-    function showStatus(message, type = 'loading') {
-      statusEl.textContent = message;
-      statusEl.className = `status ${type}`;
-      statusEl.style.display = 'block';
-      
-      if (type === 'success' || type === 'error') {
-        setTimeout(() => {
-          statusEl.style.display = 'none';
-        }, 3000);
-      }
+    // Event listeners
+    configureBtn.addEventListener('click', configureSupabase);
+    fetchBtn.addEventListener('click', fetchTokens);
+    checkChangesBtn.addEventListener('click', checkChanges);
+    syncBtn.addEventListener('click', syncChanges);
+    importBtn.addEventListener('click', importTokens);
+    closeBtn.addEventListener('click', closePlugin);
+    
+    // Toggle configuration form
+    function toggleConfig() {
+      configForm.classList.toggle('active');
     }
     
-    function setLoading(isLoading) {
-      fetchBtn.disabled = isLoading;
-      if (isLoading) {
-        fetchText.textContent = 'Fetching...';
-        fetchSpinner.style.display = 'inline-block';
-      } else {
-        fetchText.textContent = 'Fetch Tokens';
-        fetchSpinner.style.display = 'none';
-      }
-    }
-    
-    function renderTokenPreview(tokens) {
-      tokenListEl.innerHTML = '';
+    // Configure Supabase connection
+    function configureSupabase() {
+      const url = supabaseUrl.value.trim();
+      const key = supabaseKey.value.trim();
       
-      tokens.forEach(token => {
-        const tokenEl = document.createElement('div');
-        tokenEl.className = 'token-item';
-        
-        let preview = '';
-        if (token.type === 'color') {
-          preview = `<div class="token-color" style="background-color: ${token.value}"></div>`;
-        } else {
-          preview = `<div class="token-color" style="background-color: #ddd"></div>`;
-        }
-        
-        tokenEl.innerHTML = `
-          ${preview}
-          <div class="token-info">
-            <div class="token-name">${token.name}</div>
-            <div class="token-value">${token.value}</div>
-          </div>
-        `;
-        
-        tokenListEl.appendChild(tokenEl);
-      });
-      
-      previewEl.style.display = 'block';
-      importBtn.style.display = 'block';
-    }
-    
-    // Fetch tokens from the API
-    fetchBtn.addEventListener('click', async () => {
-      const apiUrl = apiUrlInput.value.trim();
-      if (!apiUrl) {
-        showStatus('Please enter an API URL', 'error');
+      if (!url || !key) {
+        showStatus('Please enter both Supabase URL and key', 'error');
         return;
       }
       
-      setLoading(true);
-      showStatus('Fetching tokens from API...');
+      showStatus('Testing Supabase connection...', 'info');
+      configureBtn.disabled = true;
       
-      try {
-        // For demo purposes, we'll simulate fetching tokens
-        // In a real implementation, this would make an actual API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Simulate some sample tokens
-        const sampleTokens = [
-          {
-            id: '1',
-            name: 'primary-blue',
-            type: 'color',
-            value: '#3B82F6',
-            description: 'Primary brand color'
-          },
-          {
-            id: '2',
-            name: 'secondary-gray',
-            type: 'color',
-            value: '#6B7280',
-            description: 'Secondary text color'
-          },
-          {
-            id: '3',
-            name: 'spacing-md',
-            type: 'spacing',
-            value: '16px',
-            description: 'Medium spacing value'
-          }
-        ];
-        
-        currentTokens = sampleTokens;
-        renderTokenPreview(currentTokens);
-        showStatus(`Found ${currentTokens.length} tokens`, 'success');
-        
-      } catch (error) {
-        console.error('Error fetching tokens:', error);
-        showStatus('Failed to fetch tokens. Make sure your Token Management System is running.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    });
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'configure-supabase',
+          supabaseUrl: url,
+          supabaseKey: key
+        } 
+      }, '*');
+    }
     
-    // Import tokens to Figma
-    importBtn.addEventListener('click', () => {
-      if (currentTokens.length === 0) {
+    // Fetch tokens
+    function fetchTokens() {
+      showStatus('Fetching tokens...', 'info');
+      fetchBtn.disabled = true;
+      
+      parent.postMessage({ pluginMessage: { type: 'fetch-tokens' } }, '*');
+    }
+    
+    // Check for changes
+    function checkChanges() {
+      showStatus('Checking for changes...', 'info');
+      checkChangesBtn.disabled = true;
+      
+      parent.postMessage({ pluginMessage: { type: 'check-changes' } }, '*');
+    }
+    
+    // Sync changes
+    function syncChanges() {
+      if (!currentChanges) {
+        showStatus('No changes to sync', 'warning');
+        return;
+      }
+      
+      showStatus('Syncing changes...', 'info');
+      syncBtn.disabled = true;
+      
+      parent.postMessage({ pluginMessage: { type: 'sync-changes' } }, '*');
+    }
+    
+    // Import all tokens
+    function importTokens() {
+      if (tokens.length === 0) {
         showStatus('No tokens to import', 'error');
         return;
       }
       
-      showStatus('Importing tokens to Figma...');
-      parent.postMessage({
-        pluginMessage: {
-          type: 'import-tokens',
-          tokens: currentTokens
-        }
+      showStatus('Importing tokens to Figma...', 'info');
+      importBtn.disabled = true;
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'import-tokens', 
+          tokens: tokens 
+        } 
       }, '*');
-    });
+    }
     
     // Close plugin
-    closeBtn.addEventListener('click', () => {
-      parent.postMessage({
-        pluginMessage: {
-          type: 'close-plugin'
-        }
-      }, '*');
-    });
+    function closePlugin() {
+      parent.postMessage({ pluginMessage: { type: 'close-plugin' } }, '*');
+    }
     
-    // Listen for messages from the plugin code
-    window.onmessage = (event) => {
-      const msg = event.data.pluginMessage;
+    // Show status message
+    function showStatus(message, type = 'info') {
+      statusMessage.innerHTML = `<div class="status ${type}">${message}</div>`;
+    }
+    
+    // Update connection status
+    function updateConnectionStatus(connected, details = '', type = 'info') {
+      const dotClass = type === 'warning' ? 'warning' : (connected ? 'connected' : 'disconnected');
+      statusDot.className = `status-dot ${dotClass}`;
       
-      if (msg.type === 'import-complete') {
-        showStatus(msg.message, 'success');
-      } else if (msg.type === 'import-error') {
-        showStatus(msg.message, 'error');
+      if (isSupabaseConfigured) {
+        statusText.textContent = connected ? 'Connected to Supabase' : 'Supabase connection failed';
+      } else {
+        statusText.textContent = connected ? 'Connected via API' : 'Not connected';
+      }
+      
+      if (details) {
+        connectionDetails.textContent = details;
+        connectionDetails.classList.remove('hidden');
+      } else {
+        connectionDetails.classList.add('hidden');
+      }
+    }
+    
+    // Update token statistics
+    function updateStats(totalTokens, changes = null) {
+      document.getElementById('totalTokens').textContent = totalTokens;
+      
+      if (changes) {
+        document.getElementById('addedTokens').textContent = changes.added.length;
+        document.getElementById('modifiedTokens').textContent = changes.modified.length;
+        document.getElementById('deletedTokens').textContent = changes.deleted.length;
+      } else {
+        document.getElementById('addedTokens').textContent = '0';
+        document.getElementById('modifiedTokens').textContent = '0';
+        document.getElementById('deletedTokens').textContent = '0';
+      }
+      
+      statsSection.style.display = 'block';
+    }
+    
+    // Update changes summary
+    function updateChangesSummary(changes) {
+      if (!changes || (changes.added.length === 0 && changes.modified.length === 0 && changes.deleted.length === 0)) {
+        changesSummary.classList.add('hidden');
+        return;
+      }
+      
+      let html = '';
+      
+      if (changes.added.length > 0) {
+        html += `<div class="change-item"><span>➕ Added:</span><span>${changes.added.length}</span></div>`;
+      }
+      
+      if (changes.modified.length > 0) {
+        html += `<div class="change-item"><span>✏️ Modified:</span><span>${changes.modified.length}</span></div>`;
+      }
+      
+      if (changes.deleted.length > 0) {
+        html += `<div class="change-item"><span>🗑️ Deleted:</span><span>${changes.deleted.length}</span></div>`;
+      }
+      
+      changesContent.innerHTML = html;
+      changesSummary.classList.remove('hidden');
+    }
+    
+    // Handle messages from plugin
+    window.onmessage = (event) => {
+      const { type, tokens: fetchedTokens, changes, message, error, success, tokenCount, totalTokens } = event.data.pluginMessage;
+      
+      switch (type) {
+        case 'plugin-ready':
+          showStatus('Plugin ready', 'info');
+          break;
+          
+        case 'supabase-configured':
+          configureBtn.disabled = false;
+          if (success) {
+            isSupabaseConfigured = true;
+            showStatus(`Supabase connected! Found ${tokenCount} tokens`, 'success');
+            updateConnectionStatus(true, `${tokenCount} tokens available`, 'success');
+            configForm.classList.remove('active');
+          } else {
+            showStatus(`Supabase connection failed: ${error}`, 'error');
+            updateConnectionStatus(false, error, 'error');
+          }
+          break;
+          
+        case 'tokens-fetched':
+          tokens = fetchedTokens || [];
+          fetchBtn.disabled = false;
+          checkChangesBtn.disabled = false;
+          importBtn.disabled = tokens.length === 0;
+          
+          updateConnectionStatus(true, `${tokens.length} tokens loaded`);
+          updateStats(tokens.length);
+          showStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
+          break;
+          
+        case 'changes-detected':
+          currentChanges = changes;
+          checkChangesBtn.disabled = false;
+          syncBtn.disabled = !changes || (changes.added.length === 0 && changes.modified.length === 0 && changes.deleted.length === 0);
+          
+          updateStats(totalTokens, changes);
+          updateChangesSummary(changes);
+          
+          const changeCount = (changes.added.length + changes.modified.length + changes.deleted.length);
+          if (changeCount > 0) {
+            showStatus(`Found ${changeCount} changes`, 'warning');
+          } else {
+            showStatus('No changes detected', 'success');
+          }
+          break;
+          
+        case 'sync-complete':
+          syncBtn.disabled = false;
+          currentChanges = changes;
+          updateStats(totalTokens, changes);
+          updateChangesSummary(changes);
+          showStatus(message, 'success');
+          break;
+          
+        case 'success':
+          importBtn.disabled = false;
+          showStatus(message, 'success');
+          break;
+          
+        case 'error':
+          fetchBtn.disabled = false;
+          checkChangesBtn.disabled = false;
+          syncBtn.disabled = false;
+          importBtn.disabled = false;
+          updateConnectionStatus(false, error || message);
+          showStatus(error || message, 'error');
+          break;
       }
     };
+    
+    // Initialize
+    showStatus('Ready to connect', 'info');
   </script>
 </body>
 </html>
