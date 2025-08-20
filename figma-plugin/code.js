@@ -72,33 +72,48 @@ figma.ui.onmessage = async (msg) => {
     try {
       let tokens = [];
       
-      if (supabaseConfig) {
-        // Fetch directly from Supabase
-        tokens = await fetchTokensFromSupabase();
-      } else {
-        // Fallback to API endpoint
-        const response = await fetch('https://design-token-management-app.vercel.app/api/tokens');
-        if (!response.ok) {
-          throw new Error('Failed to fetch tokens from API');
+      // Always try API fallback first since it's more reliable
+      try {
+        tokens = await fetchTokensFromAPI();
+        figma.ui.postMessage({ type: 'tokens-fetched', tokens });
+      } catch (apiError) {
+        console.error('API fetch failed, trying Supabase:', apiError);
+        
+        // Only try Supabase if configured and API fails
+        if (supabaseConfig) {
+          try {
+            tokens = await fetchTokensFromSupabase();
+            figma.ui.postMessage({ type: 'tokens-fetched', tokens });
+          } catch (supabaseError) {
+            throw new Error(`Both API and Supabase failed. API: ${apiError.message}, Supabase: ${supabaseError.message}`);
+          }
+        } else {
+          throw apiError;
         }
-        tokens = await response.json();
       }
       
-      figma.ui.postMessage({ type: 'tokens-fetched', tokens });
+      currentTokens = tokens;
+      
     } catch (error) {
       console.error('Error fetching tokens:', error);
-      figma.ui.postMessage({ 
-        type: 'error', 
-        message: 'Could not fetch tokens: ' + error.message 
-      });
+      figma.ui.postMessage({ type: 'error', message: `Could not fetch tokens: ${error.message}` });
     }
   }
 
   if (msg.type === 'check-changes') {
     try {
-      const tokens = supabaseConfig ? 
-        await fetchTokensFromSupabase() : 
-        await fetchTokensFromAPI();
+      let tokens = [];
+      
+      // Use same fallback logic as fetch-tokens
+      try {
+        tokens = await fetchTokensFromAPI();
+      } catch (apiError) {
+        if (supabaseConfig) {
+          tokens = await fetchTokensFromSupabase();
+        } else {
+          throw apiError;
+        }
+      }
       
       const changes = detectTokenChanges(currentTokens, tokens);
       currentTokens = tokens;
