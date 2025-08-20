@@ -530,10 +530,14 @@
           document.getElementById('supabaseConfig').style.display = 'none';
           document.getElementById('configToggle').innerHTML = '✅ Auto-configured';
           document.getElementById('configToggle').disabled = true;
+          document.getElementById('configToggle').style.display = 'none';
         } else {
-          updateStatus(msg.message + ' - Manual configuration available', 'warning');
-          document.getElementById('connectionStatus').innerHTML = '🟡 Manual configuration required';
-          document.getElementById('connectionStatus').className = 'text-yellow-600 font-medium';
+          updateStatus('Using API fallback mode - Supabase config not needed', 'info');
+          document.getElementById('connectionStatus').innerHTML = '🔄 API Fallback Mode';
+          document.getElementById('connectionStatus').className = 'text-blue-600 font-medium';
+          // Hide Supabase configuration completely in fallback mode
+          document.getElementById('supabaseConfig').style.display = 'none';
+          document.getElementById('configToggle').style.display = 'none';
         }
       }
       
