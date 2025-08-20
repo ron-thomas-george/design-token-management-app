@@ -11,7 +11,7 @@ async function autoConfigureSupabase() {
   try {
     const response = await fetch('https://design-token-management-app.vercel.app/api/supabase-config');
     if (!response.ok) {
-      throw new Error('Failed to fetch Supabase config');
+      throw new Error(`API endpoint not found (${response.status})`);
     }
     
     const config = await response.json();
@@ -31,7 +31,7 @@ async function autoConfigureSupabase() {
       figma.ui.postMessage({ 
         type: 'supabase-auto-configured', 
         success: false,
-        message: 'Supabase not configured on server'
+        message: 'Supabase environment variables not configured in deployment'
       });
     }
   } catch (error) {
@@ -39,7 +39,7 @@ async function autoConfigureSupabase() {
     figma.ui.postMessage({ 
       type: 'supabase-auto-configured', 
       success: false,
-      message: 'Failed to auto-configure Supabase'
+      message: 'API endpoint not available - using fallback mode'
     });
   }
 }
