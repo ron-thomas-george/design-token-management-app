@@ -84,9 +84,18 @@ class GitHubService {
         payload.sha = sha
       }
 
+      console.log('Updating file:', path, 'on branch:', targetBranch)
+      console.log('Payload size:', JSON.stringify(payload).length, 'bytes')
+
       const response = await this.api.put(`/repos/${this.config.owner}/${this.config.repo}/contents/${path}`, payload)
       return { success: true, data: response.data }
     } catch (error) {
+      console.error('GitHub API error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
       throw new Error(`Failed to update file: ${error.response?.data?.message || error.message}`)
     }
   }

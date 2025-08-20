@@ -5,6 +5,7 @@ import TokenDialog from './TokenDialog'
 import TokenTable from './TokenTable'
 import { pushTokensToGitHub } from '../services/githubService'
 import { createSlackService } from '../services/slackService'
+import { debugGitHubPush, testGitHubAuth } from '../utils/debugGitHub'
 
 const TokenManagement = () => {
   const [tokens, setTokens] = useState([])
@@ -130,8 +131,30 @@ const TokenManagement = () => {
     try {
       const tokensToSync = tokens.filter(token => changedTokens.has(token.id))
       
+      console.log('Tokens to sync:', tokensToSync)
+      console.log('GitHub config:', { ...githubConfig, token: '[HIDDEN]' })
+      
+      if (tokensToSync.length === 0) {
+        toast.error('No tokens to sync. Make sure you have created or modified tokens.')
+        return
+      }
+      
+      // Debug GitHub connection first
+      const debugResult = await debugGitHubPush(tokensToSync, githubConfig)
+      if (!debugResult.success) {
+        throw new Error(`GitHub connection failed: ${debugResult.error}`)
+      }
+      
+      // Test authentication
+      const authResult = await testGitHubAuth(githubConfig)
+      if (!authResult.success) {
+        throw new Error(`GitHub authentication failed: ${authResult.error}`)
+      }
+      
       // Push to GitHub using the GitHub service
       const result = await pushTokensToGitHub(tokensToSync, githubConfig)
+      
+      console.log('GitHub push result:', result)
       
       // Send Slack notification about the push
       await sendSlackNotification(tokensToSync, 'pushed')
@@ -147,7 +170,7 @@ const TokenManagement = () => {
       setChangedTokens(new Set())
     } catch (error) {
       console.error('Error pushing to GitHub:', error)
-      toast.error('Failed to push tokens to GitHub')
+      toast.error(`Failed to push tokens to GitHub: ${error.message}`)
     } finally {
       setIsLoading(false)
     }
