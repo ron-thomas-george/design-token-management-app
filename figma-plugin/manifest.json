@@ -11,8 +11,11 @@
   ],
   "networkAccess": {
     "allowedDomains": [
-      "https://localhost:3000",
       "https://design-token-management-app.vercel.app"
-    ]
+    ],
+    "devAllowedDomains": [
+      "https://localhost:3000"
+    ],
+    "reasoning": "This plugin needs to fetch design tokens from the deployed web application and optionally from a local development server for testing purposes."
   }
 }
