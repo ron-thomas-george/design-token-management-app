@@ -261,22 +261,6 @@
   <div class="container">
     <h1>🎨 Design Token Sync</h1>
     
-    <!-- Supabase Configuration -->
-    <div class="section">
-      <h2 class="collapsible" onclick="toggleConfig()">⚙️ Supabase Configuration</h2>
-      <div class="config-form" id="configForm">
-        <div class="input-group">
-          <label for="supabaseUrl">Supabase URL</label>
-          <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
-        </div>
-        <div class="input-group">
-          <label for="supabaseKey">Anon Key</label>
-          <input type="password" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs...">
-        </div>
-        <button class="button" id="configureBtn">🔗 Connect to Supabase</button>
-        <div class="toggle-text">Optional: Configure for direct Supabase access</div>
-      </div>
-    </div>
     
     <!-- Connection Status -->
     <div class="section">
@@ -343,10 +327,6 @@
     let isSupabaseConfigured = false;
     
     // DOM elements
-    const configForm = document.getElementById('configForm');
-    const supabaseUrl = document.getElementById('supabaseUrl');
-    const supabaseKey = document.getElementById('supabaseKey');
-    const configureBtn = document.getElementById('configureBtn');
     const fetchBtn = document.getElementById('fetchBtn');
     const checkChangesBtn = document.getElementById('checkChangesBtn');
     const syncBtn = document.getElementById('syncBtn');
@@ -361,39 +341,12 @@
     const changesContent = document.getElementById('changesContent');
     
     // Event listeners
-    configureBtn.addEventListener('click', configureSupabase);
     fetchBtn.addEventListener('click', fetchTokens);
     checkChangesBtn.addEventListener('click', checkChanges);
     syncBtn.addEventListener('click', syncChanges);
     importBtn.addEventListener('click', importTokens);
     closeBtn.addEventListener('click', closePlugin);
     
-    // Toggle configuration form
-    function toggleConfig() {
-      configForm.classList.toggle('active');
-    }
-    
-    // Configure Supabase connection
-    function configureSupabase() {
-      const url = supabaseUrl.value.trim();
-      const key = supabaseKey.value.trim();
-      
-      if (!url || !key) {
-        showStatus('Please enter both Supabase URL and key', 'error');
-        return;
-      }
-      
-      showStatus('Testing Supabase connection...', 'info');
-      configureBtn.disabled = true;
-      
-      parent.postMessage({ 
-        pluginMessage: { 
-          type: 'configure-supabase',
-          supabaseUrl: url,
-          supabaseKey: key
-        } 
-      }, '*');
-    }
     
     // Fetch tokens
     function fetchTokens() {
@@ -523,33 +476,21 @@
       
       if (msg.type === 'supabase-auto-configured') {
         if (msg.success) {
-          updateStatus(msg.message, 'success');
-          document.getElementById('connectionStatus').innerHTML = '🟢 Connected to Supabase';
-          document.getElementById('connectionStatus').className = 'text-green-600 font-medium';
-          // Hide manual configuration section since it's auto-configured
-          document.getElementById('supabaseConfig').style.display = 'none';
-          document.getElementById('configToggle').innerHTML = '✅ Auto-configured';
-          document.getElementById('configToggle').disabled = true;
-          document.getElementById('configToggle').style.display = 'none';
+          showStatus('Connected to Supabase automatically', 'success');
+          updateConnectionStatus(true, 'Supabase connection active');
         } else {
-          updateStatus('Using API fallback mode - Supabase config not needed', 'info');
-          document.getElementById('connectionStatus').innerHTML = '🔄 API Fallback Mode';
-          document.getElementById('connectionStatus').className = 'text-blue-600 font-medium';
-          // Hide Supabase configuration completely in fallback mode
-          document.getElementById('supabaseConfig').style.display = 'none';
-          document.getElementById('configToggle').style.display = 'none';
+          showStatus('Using API fallback mode', 'info');
+          updateConnectionStatus(true, 'API fallback active');
         }
       }
       
       if (msg.type === 'supabase-configured') {
-        configureBtn.disabled = false;
         if (msg.success) {
           isSupabaseConfigured = true;
-          updateStatus(`Supabase connected! Found ${msg.tokenCount} tokens`, 'success');
+          showStatus(`Supabase connected! Found ${msg.tokenCount} tokens`, 'success');
           updateConnectionStatus(true, `${msg.tokenCount} tokens available`, 'success');
-          configForm.classList.remove('active');
         } else {
-          updateStatus(`Supabase connection failed: ${msg.error}`, 'error');
+          showStatus(`Supabase connection failed: ${msg.error}`, 'error');
           updateConnectionStatus(false, msg.error, 'error');
         }
       }
