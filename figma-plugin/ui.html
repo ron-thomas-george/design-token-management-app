@@ -80,6 +80,11 @@
       width: 100%;
       margin-bottom: 6px;
       transition: background-color 0.2s;
+      box-sizing: border-box;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .button:hover {
@@ -118,12 +123,21 @@
     
     .button-row {
       display: flex;
-      gap: 6px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
     
     .button-row .button {
       flex: 1;
       margin-bottom: 0;
+    }
+    
+    .button.import {
+      background: #17a2b8;
+    }
+    
+    .button.import:hover {
+      background: #138496;
     }
     
     .status {
@@ -304,12 +318,16 @@
     <!-- Actions -->
     <div class="section">
       <h2>Actions</h2>
-      <button class="button" id="fetchBtn">📥 Fetch Latest Tokens</button>
+      <div style="margin-bottom: 8px;">
+        <button class="button" id="fetchBtn">📥 Fetch Latest Tokens</button>
+      </div>
       <div class="button-row">
         <button class="button warning" id="checkChangesBtn" disabled>🔍 Check Changes</button>
         <button class="button success" id="syncBtn" disabled>🔄 Sync Changes</button>
       </div>
-      <button class="button" id="importBtn" disabled>🚀 Import All to Figma</button>
+      <div style="margin-top: 8px;">
+        <button class="button import" id="importBtn" disabled>🚀 Import All to Figma</button>
+      </div>
     </div>
     
     <!-- Status Messages -->
@@ -471,7 +489,7 @@
       const msg = event.data.pluginMessage;
       
       if (msg.type === 'plugin-ready') {
-        updateStatus('Plugin ready', 'info');
+        showStatus('Plugin ready', 'info');
       }
       
       if (msg.type === 'supabase-auto-configured') {
@@ -503,7 +521,7 @@
         
         updateConnectionStatus(true, `${tokens.length} tokens loaded`);
         updateStats(tokens.length);
-        updateStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
+        showStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
       }
       
       if (msg.type === 'changes-detected') {
@@ -516,9 +534,9 @@
         
         const changeCount = (msg.changes.added.length + msg.changes.modified.length + msg.changes.deleted.length);
         if (changeCount > 0) {
-          updateStatus(`Found ${changeCount} changes`, 'warning');
+          showStatus(`Found ${changeCount} changes`, 'warning');
         } else {
-          updateStatus('No changes detected', 'success');
+          showStatus('No changes detected', 'success');
         }
       }
       
@@ -527,12 +545,12 @@
         currentChanges = msg.changes;
         updateStats(msg.totalTokens, msg.changes);
         updateChangesSummary(msg.changes);
-        updateStatus(msg.message, 'success');
+        showStatus(msg.message, 'success');
       }
       
       if (msg.type === 'success') {
         importBtn.disabled = false;
-        updateStatus(msg.message, 'success');
+        showStatus(msg.message, 'success');
       }
       
       if (msg.type === 'error') {
@@ -541,7 +559,7 @@
         syncBtn.disabled = false;
         importBtn.disabled = false;
         updateConnectionStatus(false, msg.error || msg.message);
-        updateStatus(msg.error || msg.message, 'error');
+        showStatus(msg.error || msg.message, 'error');
       }
     };
     

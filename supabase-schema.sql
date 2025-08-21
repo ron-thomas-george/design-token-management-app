@@ -1,17 +1,20 @@
 -- Create design_tokens table
 CREATE TABLE design_tokens (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
   value TEXT NOT NULL,
   type VARCHAR(50) NOT NULL CHECK (type IN ('color', 'typography', 'spacing', 'border-radius', 'shadow')),
   description TEXT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(name, user_id)
 );
 
 -- Create index for faster queries
 CREATE INDEX idx_design_tokens_type ON design_tokens(type);
 CREATE INDEX idx_design_tokens_name ON design_tokens(name);
+CREATE INDEX idx_design_tokens_user_id ON design_tokens(user_id);
 
 -- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()

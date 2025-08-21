@@ -4,98 +4,27 @@ figma.showUI(__html__, { width: 450, height: 700 });
 // Store for tracking token changes
 let lastTokenSync = null;
 let currentTokens = [];
-let supabaseConfig = null;
 
-// Auto-configure Supabase on plugin load
-async function autoConfigureSupabase() {
-  try {
-    const response = await fetch('https://design-token-management-app.vercel.app/api/supabase-config');
-    if (!response.ok) {
-      throw new Error(`API endpoint not found (${response.status})`);
-    }
-    
-    const config = await response.json();
-    
-    if (config.configured) {
-      supabaseConfig = {
-        url: config.supabaseUrl,
-        key: config.supabaseKey
-      };
-      
-      figma.ui.postMessage({ 
-        type: 'supabase-auto-configured', 
-        success: true,
-        message: 'Supabase automatically configured'
-      });
-    } else {
-      figma.ui.postMessage({ 
-        type: 'supabase-auto-configured', 
-        success: false,
-        message: 'Supabase environment variables not configured in deployment'
-      });
-    }
-  } catch (error) {
-    console.error('Auto-configure Supabase failed:', error);
-    figma.ui.postMessage({ 
-      type: 'supabase-auto-configured', 
-      success: false,
-      message: 'API endpoint not available - using fallback mode'
-    });
-  }
+// Initialize plugin on load
+initializePlugin();
+
+async function initializePlugin() {
+  figma.ui.postMessage({ 
+    type: 'plugin-initialized', 
+    success: true, 
+    message: 'Plugin ready - using API endpoint for tokens' 
+  });
 }
 
 figma.ui.onmessage = async (msg) => {
-  if (msg.type === 'configure-supabase') {
-    supabaseConfig = {
-      url: msg.supabaseUrl,
-      key: msg.supabaseKey
-    };
-    
-    // Test connection
-    try {
-      const tokens = await fetchTokensFromSupabase();
-      figma.ui.postMessage({ 
-        type: 'supabase-configured', 
-        success: true,
-        tokenCount: tokens.length 
-      });
-    } catch (error) {
-      figma.ui.postMessage({ 
-        type: 'supabase-configured', 
-        success: false,
-        error: error.message 
-      });
-    }
-  }
 
   if (msg.type === 'fetch-tokens') {
     try {
       let tokens = [];
       
-      // Always try API fallback first since it's more reliable
-      try {
-        tokens = await fetchTokensFromAPI();
-        figma.ui.postMessage({ type: 'tokens-fetched', tokens });
-      } catch (apiError) {
-        console.error('API fetch failed, trying Supabase:', apiError);
-        
-        // Only try Supabase if configured and API fails
-        if (supabaseConfig) {
-          try {
-            tokens = await fetchTokensFromSupabase();
-            figma.ui.postMessage({ type: 'tokens-fetched', tokens });
-          } catch (supabaseError) {
-            console.error('Supabase also failed, using hardcoded tokens:', supabaseError);
-            tokens = getHardcodedTokens();
-            figma.ui.postMessage({ type: 'tokens-fetched', tokens });
-          }
-        } else {
-          console.error('No Supabase config, using hardcoded tokens');
-          tokens = getHardcodedTokens();
-          figma.ui.postMessage({ type: 'tokens-fetched', tokens });
-        }
-      }
-      
+      // Try API endpoint only - no fallback
+      tokens = await fetchTokensFromAPI();
+      figma.ui.postMessage({ type: 'tokens-fetched', tokens });
       currentTokens = tokens;
       
     } catch (error) {
@@ -193,6 +122,7 @@ figma.ui.onmessage = async (msg) => {
 
 // Fetch tokens directly from Supabase
 async function fetchTokensFromSupabase() {
+  debugger;
   if (!supabaseConfig) {
     throw new Error('Supabase not configured');
   }
@@ -219,56 +149,6 @@ async function fetchTokensFromSupabase() {
   }
 }
 
-// Hardcoded tokens as ultimate fallback
-function getHardcodedTokens() {
-  return [
-    {
-      id: '1',
-      name: 'primary-blue',
-      type: 'color',
-      value: '#3B82F6',
-      category: 'colors',
-      description: 'Primary brand color',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: '2',
-      name: 'success-green',
-      type: 'color',
-      value: '#10B981',
-      category: 'colors',
-      description: 'Success state color',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: '3',
-      name: 'heading-font',
-      type: 'typography',
-      value: 'Inter, sans-serif',
-      category: 'fonts',
-      description: 'Main heading font family',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: '4',
-      name: 'base-spacing',
-      type: 'spacing',
-      value: '16px',
-      category: 'spacing',
-      description: 'Base spacing unit',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: '5',
-      name: 'large-spacing',
-      type: 'spacing',
-      value: '32px',
-      category: 'spacing',
-      description: 'Large spacing unit',
-      created_at: new Date().toISOString()
-    }
-  ];
-}
 
 // Fallback API fetch
 async function fetchTokensFromAPI() {
@@ -526,24 +406,48 @@ async function createTokenValueElement(token) {
   }
 }
 
-// Enhanced color parser
+// Enhanced color parser with validation
 function parseColor(colorValue) {
+  if (!colorValue || typeof colorValue !== 'string') {
+    return { r: 0.5, g: 0.5, b: 0.5 }; // Default gray
+  }
+
   if (colorValue.startsWith('#')) {
     const hex = colorValue.slice(1);
-    const r = parseInt(hex.slice(0, 2), 16) / 255;
-    const g = parseInt(hex.slice(2, 4), 16) / 255;
-    const b = parseInt(hex.slice(4, 6), 16) / 255;
-    return { r, g, b };
+    
+    // Handle 3-digit hex (e.g., #f0a)
+    if (hex.length === 3) {
+      const r = parseInt(hex[0] + hex[0], 16) / 255;
+      const g = parseInt(hex[1] + hex[1], 16) / 255;
+      const b = parseInt(hex[2] + hex[2], 16) / 255;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        return { r, g, b };
+      }
+    }
+    
+    // Handle 6-digit hex (e.g., #ff00aa)
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16) / 255;
+      const g = parseInt(hex.slice(2, 4), 16) / 255;
+      const b = parseInt(hex.slice(4, 6), 16) / 255;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        return { r, g, b };
+      }
+    }
   }
   
   if (colorValue.startsWith('rgb')) {
     const matches = colorValue.match(/\d+/g);
     if (matches && matches.length >= 3) {
-      return {
-        r: parseInt(matches[0]) / 255,
-        g: parseInt(matches[1]) / 255,
-        b: parseInt(matches[2]) / 255
-      };
+      const r = parseInt(matches[0]) / 255;
+      const g = parseInt(matches[1]) / 255;
+      const b = parseInt(matches[2]) / 255;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        return { r, g, b };
+      }
     }
   }
   
@@ -553,12 +457,20 @@ function parseColor(colorValue) {
     'blue': { r: 0, g: 0, b: 1 },
     'green': { r: 0, g: 1, b: 0 },
     'black': { r: 0, g: 0, b: 0 },
-    'white': { r: 1, g: 1, b: 1 }
+    'white': { r: 1, g: 1, b: 1 },
+    'gray': { r: 0.5, g: 0.5, b: 0.5 },
+    'grey': { r: 0.5, g: 0.5, b: 0.5 }
   };
   
-  return namedColors[colorValue.toLowerCase()] || { r: 0.5, g: 0.5, b: 0.5 };
+  const namedColor = namedColors[colorValue.toLowerCase()];
+  if (namedColor) {
+    return namedColor;
+  }
+  
+  // Fallback to gray for invalid colors
+  console.warn(`Invalid color value: ${colorValue}, using fallback gray`);
+  return { r: 0.5, g: 0.5, b: 0.5 };
 }
 
-// Auto-configure Supabase and send initial message to UI
-autoConfigureSupabase();
+// Send initial message to UI
 figma.ui.postMessage({ type: 'plugin-ready' });
