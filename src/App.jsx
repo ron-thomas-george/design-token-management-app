@@ -5,42 +5,38 @@ import Integrations from './components/Integrations'
 import { Settings, Palette } from 'lucide-react'
 
 function App() {
-  const [activeTab, setActiveTab] = useState('tokens')
+  const [currentView, setCurrentView] = useState('tokens')
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Toaster position="top-right" />
-      
+    <div className="min-h-screen bg-[#0f1419]">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-[#1a1f2e] border-b border-[#2d3748]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <Palette className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-semibold text-gray-900">Token Management System</h1>
+              <Palette className="h-8 w-8 text-[#3ecf8e]" />
+              <h1 className="text-xl font-bold text-white">Fragmento</h1>
             </div>
-            
-            <nav className="flex space-x-8">
+            <nav className="flex space-x-4">
               <button
-                onClick={() => setActiveTab('tokens')}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === 'tokens'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
+                onClick={() => setCurrentView('tokens')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentView === 'tokens'
+                    ? 'bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/20'
+                    : 'text-gray-400 hover:text-white hover:bg-[#2d3748]'
                 }`}
               >
                 Tokens
               </button>
               <button
-                onClick={() => setActiveTab('integrations')}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center space-x-2 ${
-                  activeTab === 'integrations'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
+                onClick={() => setCurrentView('integrations')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentView === 'integrations'
+                    ? 'bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/20'
+                    : 'text-gray-400 hover:text-white hover:bg-[#2d3748]'
                 }`}
               >
-                <Settings className="h-4 w-4" />
-                <span>Integrations</span>
+                Integrations
               </button>
             </nav>
           </div>
@@ -48,9 +44,10 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'tokens' && <TokenManagement />}
-        {activeTab === 'integrations' && <Integrations />}
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          {currentView === 'tokens' ? <TokenManagement /> : <Integrations />}
+        </div>
       </main>
     </div>
   )

@@ -13,7 +13,7 @@ class SlackService {
     try {
       const payload = {
         text: message,
-        username: 'Token Management System',
+        username: 'Fragmento',
         icon_emoji: ':art:',
         ...options
       }
@@ -42,7 +42,7 @@ class SlackService {
   }
 
   async testConnection() {
-    return this.sendNotification('Token Management System - Connection test successful! 🎉')
+    return this.sendNotification('Fragmento - Connection test successful! 🎉')
   }
 
   formatTokenNotification(tokens, action) {
@@ -117,7 +117,7 @@ class SlackService {
   }
 
   async notifyError(error, context = '') {
-    const message = `❌ *Error in Token Management System*\n\n${context ? `*Context:* ${context}\n` : ''}*Error:* ${error.message || error}`
+    const message = `❌ *Error in Fragmento*\n\n${context ? `*Context:* ${context}\n` : ''}*Error:* ${error.message || error}`
     return this.sendNotification(message)
   }
 }

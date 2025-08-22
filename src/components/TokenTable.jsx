@@ -33,23 +33,22 @@ const ContextMenu = ({ isOpen, onClose, onEdit, onDelete, position }) => {
   return (
     <div
       ref={menuRef}
-      className="absolute bg-white rounded-md shadow-lg border border-gray-200 py-1 z-10 min-w-[120px]"
+      className="absolute bg-[#1a1f2e] rounded-md border border-[#2d3748] py-1 z-50 min-w-[120px]"
       style={{
         top: position.y,
-        left: position.x,
-        transform: 'translateX(-100%)'
+        left: position.x
       }}
     >
       <button
         onClick={onEdit}
-        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+        className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-[#2d3748] hover:text-white flex items-center space-x-2 transition-colors"
       >
         <Edit className="h-4 w-4" />
         <span>Edit</span>
       </button>
       <button
         onClick={onDelete}
-        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+        className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center space-x-2 transition-colors"
       >
         <Trash2 className="h-4 w-4" />
         <span>Delete</span>
@@ -84,12 +83,23 @@ const TokenTable = ({ tokens, onEdit, onDelete }) => {
   const handleContextMenu = (e, tokenId) => {
     e.preventDefault()
     const rect = e.currentTarget.getBoundingClientRect()
+    const tableContainer = e.currentTarget.closest('.relative')
+    const containerRect = tableContainer?.getBoundingClientRect() || { left: 0, right: window.innerWidth }
+    
+    // Calculate position relative to the table container
+    const x = rect.right - containerRect.left
+    const y = rect.top - containerRect.top
+    
+    // Check if dropdown would overflow and adjust position
+    const dropdownWidth = 120 // min-w-[120px]
+    const adjustedX = (x + dropdownWidth > containerRect.width) ? x - dropdownWidth - 20 : x
+    
     setContextMenu({
       isOpen: true,
       tokenId,
       position: {
-        x: rect.right,
-        y: rect.top
+        x: Math.max(10, adjustedX), // Ensure minimum 10px from left edge
+        y: y
       }
     })
   }
@@ -116,29 +126,29 @@ const TokenTable = ({ tokens, onEdit, onDelete }) => {
   if (tokens.length === 0) {
     return (
       <div className="text-center py-12">
-        <Palette className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No tokens</h3>
-        <p className="mt-1 text-sm text-gray-500">Get started by creating your first design token.</p>
+        <Palette className="mx-auto h-12 w-12 text-gray-500" />
+        <h3 className="mt-2 text-sm font-medium text-white">No tokens</h3>
+        <p className="mt-1 text-sm text-gray-400">Get started by creating your first design token.</p>
       </div>
     )
   }
 
   return (
     <div className="relative">
-      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-        <table className="min-w-full divide-y divide-gray-300">
-          <thead className="bg-gray-50">
+      <div className="overflow-hidden border border-[#2d3748] md:rounded-lg">
+        <table className="min-w-full divide-y divide-[#2d3748]">
+          <thead className="bg-[#0f1419]">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Type
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Value
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Description
               </th>
               <th className="relative px-6 py-3">
@@ -146,34 +156,32 @@ const TokenTable = ({ tokens, onEdit, onDelete }) => {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-[#1a1f2e] divide-y divide-[#2d3748]">
             {tokens.map((token) => {
               const IconComponent = TOKEN_TYPE_ICONS[token.type] || Palette
               return (
-                <tr key={token.id} className="hover:bg-gray-50">
+                <tr key={token.id} className="hover:bg-[#2d3748]/30 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{token.name}</div>
+                    <div className="text-sm font-medium text-white">{token.name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <IconComponent className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm text-gray-900 capitalize">
-                        {token.type.replace('-', ' ')}
-                      </span>
+                      <span className="text-xs font-medium text-gray-400 capitalize">{token.type}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <TokenPreview token={token} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 max-w-xs truncate">
+                    <div className="text-sm text-white max-w-xs truncate">
                       {token.description || '-'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     <button
                       onClick={(e) => handleContextMenu(e, token.id)}
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                      className="text-gray-500 hover:text-gray-300 transition-colors p-1 rounded-full hover:bg-[#2d3748]"
                     >
                       <MoreVertical className="h-4 w-4" />
                     </button>

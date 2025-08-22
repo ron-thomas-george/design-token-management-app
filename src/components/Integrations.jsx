@@ -102,7 +102,7 @@ const Integrations = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          text: 'Token Management System - Connection test successful! 🎉'
+          text: 'Fragmento - Connection test successful! 🎉'
         })
       })
 
@@ -149,19 +149,19 @@ const Integrations = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Integrations</h1>
-        <p className="text-gray-600">Connect your Token Management System with external services</p>
+        <h1 className="text-2xl font-bold text-white">Integrations</h1>
+        <p className="text-gray-400">Connect your Fragmento with external services</p>
       </div>
 
       {/* GitHub Integration */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-[#1a1f2e] border border-[#2d3748] rounded-lg">
+        <div className="px-6 py-4 border-b border-[#2d3748]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Github className="h-6 w-6 text-gray-700" />
+              <Github className="h-6 w-6 text-gray-300" />
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">GitHub Integration</h2>
-                <p className="text-sm text-gray-600">Push tokens to your GitHub repository</p>
+                <h2 className="text-lg font-semibold text-white">GitHub Integration</h2>
+                <p className="text-sm text-gray-400">Push tokens to your GitHub repository</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -184,7 +184,7 @@ const Integrations = () => {
         <div className="px-6 py-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Personal Access Token *
               </label>
               <input
@@ -192,15 +192,15 @@ const Integrations = () => {
                 value={githubConfig.token}
                 onChange={(e) => handleGithubConfigChange('token', e.target.value)}
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-400">
                 Generate a token with 'repo' permissions in GitHub Settings
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Repository Owner *
               </label>
               <input
@@ -208,12 +208,12 @@ const Integrations = () => {
                 value={githubConfig.owner}
                 onChange={(e) => handleGithubConfigChange('owner', e.target.value)}
                 placeholder="username or organization"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Repository Name *
               </label>
               <input
@@ -221,12 +221,12 @@ const Integrations = () => {
                 value={githubConfig.repo}
                 onChange={(e) => handleGithubConfigChange('repo', e.target.value)}
                 placeholder="my-design-system"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Branch Name
               </label>
               <input
@@ -234,7 +234,7 @@ const Integrations = () => {
                 value={githubConfig.branch}
                 onChange={(e) => handleGithubConfigChange('branch', e.target.value)}
                 placeholder="main"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
               />
             </div>
           </div>
@@ -243,7 +243,7 @@ const Integrations = () => {
             <button
               onClick={verifyGithubConnection}
               disabled={githubConfig.isVerifying || !githubConfig.token || !githubConfig.owner || !githubConfig.repo}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-4 py-2 bg-[#3ecf8e] text-black rounded-md hover:bg-[#2dd4aa] focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
             >
               {githubConfig.isVerifying ? (
                 <>
@@ -261,7 +261,7 @@ const Integrations = () => {
             {githubConfig.isConnected && (
               <button
                 onClick={disconnectGithub}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center space-x-2"
+                className="px-4 py-2 bg-[#1a1f2e] border border-[#2d3748] text-gray-300 rounded-md hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] flex items-center space-x-2 transition-colors"
               >
                 <X className="h-4 w-4" />
                 <span>Disconnect</span>
@@ -272,14 +272,14 @@ const Integrations = () => {
       </div>
 
       {/* Slack Integration */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-[#1a1f2e] border border-[#2d3748] rounded-lg">
+        <div className="px-6 py-4 border-b border-[#2d3748]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Slack className="h-6 w-6 text-gray-700" />
+              <Slack className="h-6 w-6 text-gray-300" />
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Slack Integration</h2>
-                <p className="text-sm text-gray-600">Get notifications about token changes</p>
+                <h2 className="text-lg font-semibold text-white">Slack Integration</h2>
+                <p className="text-sm text-gray-400">Get notifications about token changes</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -302,7 +302,7 @@ const Integrations = () => {
         <div className="px-6 py-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Webhook URL *
               </label>
               <input
@@ -310,15 +310,15 @@ const Integrations = () => {
                 value={slackConfig.webhookUrl}
                 onChange={(e) => handleSlackConfigChange('webhookUrl', e.target.value)}
                 placeholder="https://hooks.slack.com/services/..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-gray-400">
                 Create an incoming webhook in your Slack workspace
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Channel Name
               </label>
               <input
@@ -326,7 +326,7 @@ const Integrations = () => {
                 value={slackConfig.channelName}
                 onChange={(e) => handleSlackConfigChange('channelName', e.target.value)}
                 placeholder="#design-tokens"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
               />
             </div>
           </div>
@@ -393,7 +393,7 @@ const Integrations = () => {
             <button
               onClick={verifySlackConnection}
               disabled={slackConfig.isVerifying || !slackConfig.webhookUrl}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="px-4 py-2 bg-[#3ecf8e] text-black rounded-md hover:bg-[#2dd4aa] focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
             >
               {slackConfig.isVerifying ? (
                 <>
@@ -411,7 +411,7 @@ const Integrations = () => {
             {slackConfig.isConnected && (
               <button
                 onClick={disconnectSlack}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center space-x-2"
+                className="px-4 py-2 bg-[#1a1f2e] border border-[#2d3748] text-gray-300 rounded-md hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] flex items-center space-x-2 transition-colors"
               >
                 <X className="h-4 w-4" />
                 <span>Disconnect</span>

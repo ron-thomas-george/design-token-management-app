@@ -218,13 +218,13 @@ const TokenManagement = () => {
 
   const generateFigmaPluginCode = (tokensToSync) => {
     return `// Figma Token Plugin - Auto-generated
-// This plugin will create design tokens in your Figma file
+// This plugin will create tokens in your Figma file
 
 const tokens = ${JSON.stringify(tokensToSync, null, 2)};
 
 // Create a frame to hold all tokens
 const frame = figma.createFrame();
-frame.name = "Design Tokens";
+frame.name = "Fragmento Tokens";
 frame.resize(800, 600);
 
 let yPosition = 20;
@@ -286,7 +286,7 @@ tokens.forEach((token, index) => {
 figma.currentPage.appendChild(frame);
 
 // Close the plugin
-figma.closePlugin("Design tokens imported successfully!");
+figma.closePlugin("Fragmento tokens imported successfully!");
 `;
   }
 
@@ -318,25 +318,25 @@ figma.closePlugin("Design tokens imported successfully!");
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Design Tokens</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-white">Design tokens</h1>
+          <p className="text-gray-400">
             Manage your design system tokens. {changedTokens.size > 0 && (
-              <span className="text-blue-600 font-medium">
+              <span className="text-[#3ecf8e] font-medium">
                 {changedTokens.size} token{changedTokens.size !== 1 ? 's' : ''} ready to sync
               </span>
             )}
           </p>
         </div>
         
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={handlePushToFigma}
             disabled={isLoading || changedTokens.size === 0}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#1a1f2e] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Figma className="h-4 w-4 mr-2" />
             Open Figma Plugin
@@ -345,7 +345,7 @@ figma.closePlugin("Design tokens imported successfully!");
           <button
             onClick={handlePushToGithub}
             disabled={isLoading || changedTokens.size === 0}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#1a1f2e] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Github className="h-4 w-4 mr-2" />
             Push to GitHub
@@ -353,7 +353,7 @@ figma.closePlugin("Design tokens imported successfully!");
           
           <button
             onClick={handleCreateToken}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-black bg-[#3ecf8e] hover:bg-[#2dd4aa] focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
             Create Token
@@ -362,31 +362,31 @@ figma.closePlugin("Design tokens imported successfully!");
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <div className="text-2xl font-bold text-gray-900">{tokens.length}</div>
-          <div className="text-sm text-gray-600">Total Tokens</div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+          <div className="text-2xl font-bold text-white">{tokens.length}</div>
+          <div className="text-sm text-gray-400">Total Tokens</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <div className="text-2xl font-bold text-blue-600">{changedTokens.size}</div>
-          <div className="text-sm text-gray-600">Pending Changes</div>
+        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+          <div className="text-2xl font-bold text-[#3ecf8e]">{changedTokens.size}</div>
+          <div className="text-sm text-gray-400">Pending Changes</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <div className="text-2xl font-bold text-green-600">
+        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+          <div className="text-2xl font-bold text-[#f56565]">
             {tokens.filter(t => t.type === 'color').length}
           </div>
-          <div className="text-sm text-gray-600">Colors</div>
+          <div className="text-sm text-gray-400">Colors</div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <div className="text-2xl font-bold text-purple-600">
+        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+          <div className="text-2xl font-bold text-[#9f7aea]">
             {tokens.filter(t => t.type === 'spacing').length}
           </div>
-          <div className="text-sm text-gray-600">Spacing</div>
+          <div className="text-sm text-gray-400">Spacing</div>
         </div>
       </div>
 
       {/* Token Table */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-[#1a1f2e] border border-[#2d3748] rounded-lg">
         <TokenTable
           tokens={tokens}
           onEdit={handleEditToken}

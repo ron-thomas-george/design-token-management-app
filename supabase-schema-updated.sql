@@ -1,4 +1,4 @@
--- Updated Supabase Schema for Design Token Management System
+-- Updated Supabase Schema for Fragmento
 -- This schema supports user authentication and proper RLS policies
 
 -- Enable UUID extension

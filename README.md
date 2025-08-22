@@ -1,4 +1,4 @@
-# Token Management System
+# Fragmento
 
 A comprehensive design token management platform with Figma plugin integration and GitHub/Slack connectivity.
 

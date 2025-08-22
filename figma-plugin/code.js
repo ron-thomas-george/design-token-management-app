@@ -107,7 +107,7 @@ figma.ui.onmessage = async (msg) => {
       
       figma.ui.postMessage({ 
         type: 'success', 
-        message: `Successfully imported ${tokens.length} design tokens as variables and visualization!` 
+        message: `Successfully imported ${tokens.length} Fragmento tokens as variables and visualization!` 
       });
 
     } catch (error) {
@@ -126,7 +126,7 @@ figma.ui.onmessage = async (msg) => {
       
       figma.ui.postMessage({ 
         type: 'success', 
-        message: `Successfully created ${tokens.length} design token variables!` 
+        message: `Successfully created ${tokens.length} Fragmento token variables!` 
       });
 
     } catch (error) {
@@ -231,7 +231,7 @@ function detectTokenChanges(oldTokens, newTokens) {
 async function updateTokensInFigma(tokens, changes) {
   // Find existing token frame or create new one
   let tokenFrame = figma.currentPage.findOne(node => 
-    node.type === 'FRAME' && node.name === 'Design Tokens'
+    node.type === 'FRAME' && node.name === 'Fragmento Tokens'
   );
   
   if (!tokenFrame) {
@@ -251,7 +251,7 @@ async function updateTokensInFigma(tokens, changes) {
 async function createTokensVisualization(tokens) {
   // Create main frame for all tokens
   const mainFrame = figma.createFrame();
-  mainFrame.name = "Design Tokens";
+  mainFrame.name = "Fragmento Tokens";
   mainFrame.resize(900, 700);
   mainFrame.fills = [{ type: 'SOLID', color: { r: 0.98, g: 0.98, b: 0.98 } }];
   mainFrame.cornerRadius = 8;
@@ -508,7 +508,7 @@ async function createTokenVariables(tokens) {
     
     for (const [type, typeTokens] of Object.entries(tokensByType)) {
       // Create collection for this token type
-      const collectionName = `Design Tokens - ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+      const collectionName = `Fragmento - ${type.charAt(0).toUpperCase() + type.slice(1)}`;
       
       // Check if collection already exists
       let collection = figma.variables.getLocalVariableCollections()
@@ -566,7 +566,7 @@ async function createVariableForToken(token, collection) {
     
   } catch (error) {
     console.error(`Error creating variable for token ${token.name}:`, error);
-    // Continue with other tokens instead of failing completely
+    // This plugin needs to fetch tokens from the deployed Fragmento application completely
   }
 }
 
