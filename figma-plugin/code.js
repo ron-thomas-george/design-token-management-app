@@ -101,11 +101,13 @@ figma.ui.onmessage = async (msg) => {
       const tokens = msg.tokens;
       currentTokens = tokens;
       
+      // Create both variables and visualization
+      await createTokenVariables(tokens);
       await createTokensVisualization(tokens);
       
       figma.ui.postMessage({ 
         type: 'success', 
-        message: `Successfully imported ${tokens.length} design tokens!` 
+        message: `Successfully imported ${tokens.length} design tokens as variables and visualization!` 
       });
 
     } catch (error) {
@@ -113,6 +115,25 @@ figma.ui.onmessage = async (msg) => {
       figma.ui.postMessage({
         type: 'import-error',
         message: 'Error importing tokens: ' + error.message
+      });
+    }
+  } else if (msg.type === 'create-variables-only') {
+    try {
+      const tokens = msg.tokens;
+      currentTokens = tokens;
+      
+      await createTokenVariables(tokens);
+      
+      figma.ui.postMessage({ 
+        type: 'success', 
+        message: `Successfully created ${tokens.length} design token variables!` 
+      });
+
+    } catch (error) {
+      console.error('Error creating variables:', error);
+      figma.ui.postMessage({
+        type: 'import-error',
+        message: 'Error creating variables: ' + error.message
       });
     }
   } else if (msg.type === 'close-plugin') {
@@ -470,6 +491,216 @@ function parseColor(colorValue) {
   // Fallback to gray for invalid colors
   console.warn(`Invalid color value: ${colorValue}, using fallback gray`);
   return { r: 0.5, g: 0.5, b: 0.5 };
+}
+
+// Create Figma variables from tokens
+async function createTokenVariables(tokens) {
+  try {
+    // Group tokens by type for better organization
+    const tokensByType = tokens.reduce((acc, token) => {
+      if (!acc[token.type]) acc[token.type] = [];
+      acc[token.type].push(token);
+      return acc;
+    }, {});
+
+    // Create or get variable collections for each token type
+    const collections = {};
+    
+    for (const [type, typeTokens] of Object.entries(tokensByType)) {
+      // Create collection for this token type
+      const collectionName = `Design Tokens - ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+      
+      // Check if collection already exists
+      let collection = figma.variables.getLocalVariableCollections()
+        .find(c => c.name === collectionName);
+      
+      if (!collection) {
+        collection = figma.variables.createVariableCollection(collectionName);
+      }
+      
+      collections[type] = collection;
+      
+      // Create variables for each token in this type
+      for (const token of typeTokens) {
+        await createVariableForToken(token, collection);
+      }
+    }
+    
+    console.log(`Created variables in ${Object.keys(collections).length} collections`);
+    
+  } catch (error) {
+    console.error('Error creating variables:', error);
+    throw error;
+  }
+}
+
+// Create a Figma variable for a specific token
+async function createVariableForToken(token, collection) {
+  try {
+    // Check if variable already exists
+    const existingVariable = figma.variables.getLocalVariables()
+      .find(v => v.name === token.name && v.variableCollectionId === collection.id);
+    
+    let variable;
+    
+    if (existingVariable) {
+      variable = existingVariable;
+    } else {
+      // Determine variable type based on token type
+      const variableType = getVariableTypeForToken(token);
+      variable = figma.variables.createVariable(token.name, collection, variableType);
+    }
+    
+    // Set variable description
+    if (token.description) {
+      variable.description = token.description;
+    }
+    
+    // Set variable value based on token type
+    const value = parseTokenValueForVariable(token);
+    const defaultMode = collection.modes[0];
+    
+    variable.setValueForMode(defaultMode.modeId, value);
+    
+    console.log(`Created/updated variable: ${token.name} = ${token.value}`);
+    
+  } catch (error) {
+    console.error(`Error creating variable for token ${token.name}:`, error);
+    // Continue with other tokens instead of failing completely
+  }
+}
+
+// Get appropriate Figma variable type for token
+function getVariableTypeForToken(token) {
+  switch (token.type) {
+    case 'color':
+      return 'COLOR';
+    case 'spacing':
+    case 'border-radius':
+      return 'FLOAT';
+    case 'typography':
+    case 'shadow':
+    default:
+      return 'STRING';
+  }
+}
+
+// Parse token value for Figma variable
+function parseTokenValueForVariable(token) {
+  switch (token.type) {
+    case 'color':
+      return parseColorForVariable(token.value);
+    
+    case 'spacing':
+    case 'border-radius':
+      return parseNumericValue(token.value);
+    
+    case 'typography':
+    case 'shadow':
+    default:
+      return token.value; // Return as string
+  }
+}
+
+// Parse color value for Figma variable
+function parseColorForVariable(colorValue) {
+  if (!colorValue || typeof colorValue !== 'string') {
+    return { r: 0.5, g: 0.5, b: 0.5, a: 1 }; // Default gray
+  }
+
+  if (colorValue.startsWith('#')) {
+    const hex = colorValue.slice(1);
+    
+    // Handle 3-digit hex
+    if (hex.length === 3) {
+      const r = parseInt(hex[0] + hex[0], 16) / 255;
+      const g = parseInt(hex[1] + hex[1], 16) / 255;
+      const b = parseInt(hex[2] + hex[2], 16) / 255;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        return { r, g, b, a: 1 };
+      }
+    }
+    
+    // Handle 6-digit hex
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16) / 255;
+      const g = parseInt(hex.slice(2, 4), 16) / 255;
+      const b = parseInt(hex.slice(4, 6), 16) / 255;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        return { r, g, b, a: 1 };
+      }
+    }
+    
+    // Handle 8-digit hex (with alpha)
+    if (hex.length === 8) {
+      const r = parseInt(hex.slice(0, 2), 16) / 255;
+      const g = parseInt(hex.slice(2, 4), 16) / 255;
+      const b = parseInt(hex.slice(4, 6), 16) / 255;
+      const a = parseInt(hex.slice(6, 8), 16) / 255;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b) && !isNaN(a)) {
+        return { r, g, b, a };
+      }
+    }
+  }
+  
+  if (colorValue.startsWith('rgb')) {
+    const matches = colorValue.match(/[\d.]+/g);
+    if (matches && matches.length >= 3) {
+      const r = parseFloat(matches[0]) / 255;
+      const g = parseFloat(matches[1]) / 255;
+      const b = parseFloat(matches[2]) / 255;
+      const a = matches.length > 3 ? parseFloat(matches[3]) : 1;
+      
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b) && !isNaN(a)) {
+        return { r, g, b, a };
+      }
+    }
+  }
+  
+  // Handle named colors
+  const namedColors = {
+    'red': { r: 1, g: 0, b: 0, a: 1 },
+    'blue': { r: 0, g: 0, b: 1, a: 1 },
+    'green': { r: 0, g: 1, b: 0, a: 1 },
+    'black': { r: 0, g: 0, b: 0, a: 1 },
+    'white': { r: 1, g: 1, b: 1, a: 1 },
+    'gray': { r: 0.5, g: 0.5, b: 0.5, a: 1 },
+    'grey': { r: 0.5, g: 0.5, b: 0.5, a: 1 }
+  };
+  
+  const namedColor = namedColors[colorValue.toLowerCase()];
+  if (namedColor) {
+    return namedColor;
+  }
+  
+  // Fallback to gray
+  console.warn(`Invalid color value: ${colorValue}, using fallback gray`);
+  return { r: 0.5, g: 0.5, b: 0.5, a: 1 };
+}
+
+// Parse numeric values (spacing, border-radius)
+function parseNumericValue(value) {
+  if (typeof value === 'number') {
+    return value;
+  }
+  
+  if (typeof value === 'string') {
+    // Extract number from string (e.g., "16px" -> 16)
+    const numMatch = value.match(/([\d.]+)/);
+    if (numMatch) {
+      const num = parseFloat(numMatch[1]);
+      if (!isNaN(num)) {
+        return num;
+      }
+    }
+  }
+  
+  // Fallback to 0
+  console.warn(`Invalid numeric value: ${value}, using fallback 0`);
+  return 0;
 }
 
 // Send initial message to UI

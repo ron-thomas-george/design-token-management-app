@@ -321,12 +321,12 @@
       <div style="margin-bottom: 8px;">
         <button class="button" id="fetchBtn">📥 Fetch Latest Tokens</button>
       </div>
-      <div class="button-row">
+      <div style="margin-bottom: 8px;">
         <button class="button warning" id="checkChangesBtn" disabled>🔍 Check Changes</button>
-        <button class="button success" id="syncBtn" disabled>🔄 Sync Changes</button>
       </div>
-      <div style="margin-top: 8px;">
-        <button class="button import" id="importBtn" disabled>🚀 Import All to Figma</button>
+      <div class="button-row" style="margin-top: 8px;">
+        <button class="button import" id="importBtn" disabled>🚀 Import All</button>
+        <button class="button" id="variablesBtn" disabled>📐 Create Variables</button>
       </div>
     </div>
     
@@ -347,8 +347,8 @@
     // DOM elements
     const fetchBtn = document.getElementById('fetchBtn');
     const checkChangesBtn = document.getElementById('checkChangesBtn');
-    const syncBtn = document.getElementById('syncBtn');
     const importBtn = document.getElementById('importBtn');
+    const variablesBtn = document.getElementById('variablesBtn');
     const closeBtn = document.getElementById('closeBtn');
     const statusMessage = document.getElementById('statusMessage');
     const statusDot = document.getElementById('statusDot');
@@ -361,8 +361,8 @@
     // Event listeners
     fetchBtn.addEventListener('click', fetchTokens);
     checkChangesBtn.addEventListener('click', checkChanges);
-    syncBtn.addEventListener('click', syncChanges);
     importBtn.addEventListener('click', importTokens);
+    variablesBtn.addEventListener('click', createVariablesOnly);
     closeBtn.addEventListener('click', closePlugin);
     
     
@@ -382,32 +382,40 @@
       parent.postMessage({ pluginMessage: { type: 'check-changes' } }, '*');
     }
     
-    // Sync changes
-    function syncChanges() {
-      if (!currentChanges) {
-        showStatus('No changes to sync', 'warning');
-        return;
-      }
-      
-      showStatus('Syncing changes...', 'info');
-      syncBtn.disabled = true;
-      
-      parent.postMessage({ pluginMessage: { type: 'sync-changes' } }, '*');
-    }
     
-    // Import all tokens
+    // Import all tokens (variables + visualization)
     function importTokens() {
       if (tokens.length === 0) {
         showStatus('No tokens to import', 'error');
         return;
       }
       
-      showStatus('Importing tokens to Figma...', 'info');
+      showStatus('Creating variables and visualization...', 'info');
       importBtn.disabled = true;
+      variablesBtn.disabled = true;
       
       parent.postMessage({ 
         pluginMessage: { 
           type: 'import-tokens', 
+          tokens: tokens 
+        } 
+      }, '*');
+    }
+    
+    // Create variables only
+    function createVariablesOnly() {
+      if (tokens.length === 0) {
+        showStatus('No tokens to create variables from', 'error');
+        return;
+      }
+      
+      showStatus('Creating Figma variables...', 'info');
+      importBtn.disabled = true;
+      variablesBtn.disabled = true;
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'create-variables-only', 
           tokens: tokens 
         } 
       }, '*');
@@ -518,6 +526,7 @@
         fetchBtn.disabled = false;
         checkChangesBtn.disabled = false;
         importBtn.disabled = tokens.length === 0;
+        variablesBtn.disabled = tokens.length === 0;
         
         updateConnectionStatus(true, `${tokens.length} tokens loaded`);
         updateStats(tokens.length);
@@ -527,7 +536,6 @@
       if (msg.type === 'changes-detected') {
         currentChanges = msg.changes;
         checkChangesBtn.disabled = false;
-        syncBtn.disabled = !msg.changes || (msg.changes.added.length === 0 && msg.changes.modified.length === 0 && msg.changes.deleted.length === 0);
         
         updateStats(msg.totalTokens, msg.changes);
         updateChangesSummary(msg.changes);
@@ -540,24 +548,18 @@
         }
       }
       
-      if (msg.type === 'sync-complete') {
-        syncBtn.disabled = false;
-        currentChanges = msg.changes;
-        updateStats(msg.totalTokens, msg.changes);
-        updateChangesSummary(msg.changes);
-        showStatus(msg.message, 'success');
-      }
       
       if (msg.type === 'success') {
         importBtn.disabled = false;
+        variablesBtn.disabled = false;
         showStatus(msg.message, 'success');
       }
       
       if (msg.type === 'error') {
         fetchBtn.disabled = false;
         checkChangesBtn.disabled = false;
-        syncBtn.disabled = false;
         importBtn.disabled = false;
+        variablesBtn.disabled = false;
         updateConnectionStatus(false, msg.error || msg.message);
         showStatus(msg.error || msg.message, 'error');
       }
