@@ -33,7 +33,7 @@ const ContextMenu = ({ isOpen, onClose, onEdit, onDelete, position }) => {
   return (
     <div
       ref={menuRef}
-      className="absolute bg-[#1a1f2e] rounded-md border border-[#2d3748] py-1 z-50 min-w-[120px]"
+      className="absolute bg-[#0f1419] rounded-md border border-[#2d3748] py-1 z-50 min-w-[120px]"
       style={{
         top: position.y,
         left: position.x
@@ -156,7 +156,7 @@ const TokenTable = ({ tokens, onEdit, onDelete }) => {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-[#1a1f2e] divide-y divide-[#2d3748]">
+          <tbody className="bg-[#0f1419] divide-y divide-[#2d3748]">
             {tokens.map((token) => {
               const IconComponent = TOKEN_TYPE_ICONS[token.type] || Palette
               return (

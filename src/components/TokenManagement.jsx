@@ -336,7 +336,7 @@ figma.closePlugin("Fragmento tokens imported successfully!");
           <button
             onClick={handlePushToFigma}
             disabled={isLoading || changedTokens.size === 0}
-            className="inline-flex items-center px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#1a1f2e] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Figma className="h-4 w-4 mr-2" />
             Open Figma Plugin
@@ -345,7 +345,7 @@ figma.closePlugin("Fragmento tokens imported successfully!");
           <button
             onClick={handlePushToGithub}
             disabled={isLoading || changedTokens.size === 0}
-            className="inline-flex items-center px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#1a1f2e] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Github className="h-4 w-4 mr-2" />
             Push to GitHub
@@ -363,21 +363,21 @@ figma.closePlugin("Fragmento tokens imported successfully!");
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+        <div className="bg-[#0f1419] p-4 rounded-lg border border-[#2d3748]">
           <div className="text-2xl font-bold text-white">{tokens.length}</div>
           <div className="text-sm text-gray-400">Total Tokens</div>
         </div>
-        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+        <div className="bg-[#0f1419] p-4 rounded-lg border border-[#2d3748]">
           <div className="text-2xl font-bold text-[#3ecf8e]">{changedTokens.size}</div>
           <div className="text-sm text-gray-400">Pending Changes</div>
         </div>
-        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+        <div className="bg-[#0f1419] p-4 rounded-lg border border-[#2d3748]">
           <div className="text-2xl font-bold text-[#f56565]">
             {tokens.filter(t => t.type === 'color').length}
           </div>
           <div className="text-sm text-gray-400">Colors</div>
         </div>
-        <div className="bg-[#1a1f2e] p-4 rounded-lg border border-[#2d3748]">
+        <div className="bg-[#0f1419] p-4 rounded-lg border border-[#2d3748]">
           <div className="text-2xl font-bold text-[#9f7aea]">
             {tokens.filter(t => t.type === 'spacing').length}
           </div>
@@ -386,7 +386,7 @@ figma.closePlugin("Fragmento tokens imported successfully!");
       </div>
 
       {/* Token Table */}
-      <div className="bg-[#1a1f2e] border border-[#2d3748] rounded-lg">
+      <div className="bg-[#0f1419] border border-[#2d3748] rounded-lg">
         <TokenTable
           tokens={tokens}
           onEdit={handleEditToken}

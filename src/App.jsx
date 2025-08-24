@@ -10,7 +10,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#0f1419]">
       {/* Header */}
-      <header className="bg-[#1a1f2e] border-b border-[#2d3748]">
+      <header className="bg-[#0f1419] border-b border-[#2d3748]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">

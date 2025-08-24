@@ -5,7 +5,7 @@ CREATE TABLE design_tokens (
   value TEXT NOT NULL,
   type VARCHAR(50) NOT NULL CHECK (type IN ('color', 'typography', 'spacing', 'border-radius', 'shadow')),
   description TEXT,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(name, user_id)

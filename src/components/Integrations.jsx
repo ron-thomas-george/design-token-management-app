@@ -154,7 +154,7 @@ const Integrations = () => {
       </div>
 
       {/* GitHub Integration */}
-      <div className="bg-[#1a1f2e] border border-[#2d3748] rounded-lg">
+      <div className="bg-[#0f1419] rounded-lg border border-[#2d3748] p-6">
         <div className="px-6 py-4 border-b border-[#2d3748]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -261,7 +261,7 @@ const Integrations = () => {
             {githubConfig.isConnected && (
               <button
                 onClick={disconnectGithub}
-                className="px-4 py-2 bg-[#1a1f2e] border border-[#2d3748] text-gray-300 rounded-md hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] flex items-center space-x-2 transition-colors"
+                className="px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
               >
                 <X className="h-4 w-4" />
                 <span>Disconnect</span>
@@ -272,7 +272,7 @@ const Integrations = () => {
       </div>
 
       {/* Slack Integration */}
-      <div className="bg-[#1a1f2e] border border-[#2d3748] rounded-lg">
+      <div className="bg-[#0f1419] rounded-lg border border-[#2d3748] p-6">
         <div className="px-6 py-4 border-b border-[#2d3748]">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -411,7 +411,7 @@ const Integrations = () => {
             {slackConfig.isConnected && (
               <button
                 onClick={disconnectSlack}
-                className="px-4 py-2 bg-[#1a1f2e] border border-[#2d3748] text-gray-300 rounded-md hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] flex items-center space-x-2 transition-colors"
+                className="px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
               >
                 <X className="h-4 w-4" />
                 <span>Disconnect</span>

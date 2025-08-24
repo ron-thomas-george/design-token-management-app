@@ -106,7 +106,7 @@ const TokenDialog = ({ isOpen, onClose, onSave, editToken = null }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-[#1a1f2e] rounded-lg border border-[#2d3748] w-full max-w-md mx-4">
+      <div className="bg-[#0f1419] rounded-lg border border-[#2d3748] w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-6 border-b border-[#2d3748]">
           <h2 className="text-lg font-semibold text-white">
             {editToken ? 'Edit Token' : 'Create New Token'}
@@ -209,7 +209,7 @@ const TokenDialog = ({ isOpen, onClose, onSave, editToken = null }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#1a1f2e] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
+              className="px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
             >
               Cancel
             </button>
