@@ -205,7 +205,7 @@ const TokenDialog = ({ isOpen, onClose, onSave, editToken = null }) => {
           )}
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 px-6 py-4 bg-[#0f1419] border-t border-[#2d3748] rounded-b-lg">
+          <div className="flex justify-end space-x-3 py-4 bg-[#0f1419] border-t border-[#2d3748] rounded-b-lg">
             <button
               type="button"
               onClick={onClose}

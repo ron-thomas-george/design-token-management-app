@@ -50,7 +50,23 @@ const Integrations = () => {
   }
 
   const handleSlackConfigChange = (field, value) => {
-    setSlackConfig(prev => ({ ...prev, [field]: value, isConnected: false }))
+    const updatedConfig = { ...slackConfig, [field]: value, isConnected: false }
+    
+    // Auto-extract channel name from webhook URL
+    if (field === 'webhookUrl' && value) {
+      try {
+        const url = new URL(value)
+        const pathParts = url.pathname.split('/')
+        // Extract channel from webhook URL path or use default
+        const channelName = pathParts.length > 3 ? `#${pathParts[pathParts.length - 1]}` : '#design-tokens'
+        updatedConfig.channelName = channelName
+      } catch (error) {
+        // If URL is invalid, keep existing channel name
+      }
+    }
+    
+    setSlackConfig(updatedConfig)
+    localStorage.setItem('slackConfig', JSON.stringify(updatedConfig))
   }
 
   const verifyGithubConnection = async () => {
@@ -150,7 +166,7 @@ const Integrations = () => {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white">Integrations</h1>
-        <p className="text-gray-400">Connect your Fragmento with external services</p>
+        <p className="text-gray-400">Connect your design system tokens with external services</p>
       </div>
 
       {/* GitHub Integration */}
@@ -261,7 +277,7 @@ const Integrations = () => {
             {githubConfig.isConnected && (
               <button
                 onClick={disconnectGithub}
-                className="px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
+                className="inline-flex items-center space-x-2 px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
               >
                 <X className="h-4 w-4" />
                 <span>Disconnect</span>
@@ -326,7 +342,8 @@ const Integrations = () => {
                 value={slackConfig.channelName}
                 onChange={(e) => handleSlackConfigChange('channelName', e.target.value)}
                 placeholder="#design-tokens"
-                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e]"
+                disabled={!!slackConfig.webhookUrl}
+                className="w-full px-3 py-2 border border-[#2d3748] rounded-md bg-[#0f1419] text-white focus:ring-2 focus:ring-[#3ecf8e] focus:border-[#3ecf8e] disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -411,7 +428,7 @@ const Integrations = () => {
             {slackConfig.isConnected && (
               <button
                 onClick={disconnectSlack}
-                className="px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
+                className="inline-flex items-center space-x-2 px-4 py-2 border border-[#2d3748] rounded-md text-sm font-medium text-gray-300 bg-[#0f1419] hover:bg-[#2d3748] hover:text-white focus:ring-2 focus:ring-[#3ecf8e] focus:ring-offset-2 focus:ring-offset-[#0f1419] transition-colors"
               >
                 <X className="h-4 w-4" />
                 <span>Disconnect</span>

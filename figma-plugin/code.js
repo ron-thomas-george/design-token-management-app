@@ -503,6 +503,24 @@ async function createTokenVariables(tokens) {
       return acc;
     }, {});
 
+    // Get all existing Fragmento variables for cleanup
+    const existingVariables = figma.variables.getLocalVariables()
+      .filter(v => {
+        const collection = figma.variables.getVariableCollectionById(v.variableCollectionId);
+        return collection && collection.name.startsWith('Fragmento - ');
+      });
+
+    // Create a set of current token names for quick lookup
+    const currentTokenNames = new Set(tokens.map(token => token.name));
+
+    // Remove variables that no longer exist in the token list
+    for (const variable of existingVariables) {
+      if (!currentTokenNames.has(variable.name)) {
+        console.log(`Removing deleted variable: ${variable.name}`);
+        variable.remove();
+      }
+    }
+
     // Create or get variable collections for each token type
     const collections = {};
     
