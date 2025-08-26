@@ -151,8 +151,14 @@ figma.ui.onmessage = async (msg) => {
       // Fetch current tokens from app to compare
       const appTokens = await fetchTokensFromAPI();
       
+      // Debug logging
+      console.log('App tokens:', appTokens);
+      console.log('Figma tokens:', figmaTokens);
+      
       // Compare and get only changed tokens
       const changes = compareTokens(appTokens, figmaTokens);
+      
+      console.log('Detected changes:', changes);
       
       if (changes.added.length === 0 && changes.modified.length === 0 && changes.deleted.length === 0) {
         figma.ui.postMessage({
@@ -300,19 +306,31 @@ function compareTokens(appTokens, figmaTokens) {
     deleted: []
   };
 
-  // Create maps for easier comparison
+  // Ensure we have arrays
+  if (!Array.isArray(appTokens)) appTokens = [];
+  if (!Array.isArray(figmaTokens)) figmaTokens = [];
+
+  console.log(`Comparing ${appTokens.length} app tokens with ${figmaTokens.length} figma tokens`);
+
+  // Create maps for easier comparison - only include Fragmento tokens from app
   const appTokenMap = new Map();
   const figmaTokenMap = new Map();
 
-  // Build app token map
+  // Build app token map - filter for tokens that came from Figma (have "from Figma" in description or are Fragmento tokens)
   appTokens.forEach(token => {
-    appTokenMap.set(token.name, token);
+    if (token.name && (token.description?.includes('from Figma') || token.description?.includes('token from Figma'))) {
+      appTokenMap.set(token.name, token);
+    }
   });
 
   // Build figma token map
   figmaTokens.forEach(token => {
-    figmaTokenMap.set(token.name, token);
+    if (token.name) {
+      figmaTokenMap.set(token.name, token);
+    }
   });
+
+  console.log(`App token map has ${appTokenMap.size} tokens, Figma token map has ${figmaTokenMap.size} tokens`);
 
   // Check for added and modified tokens
   figmaTokens.forEach(figmaToken => {
@@ -320,24 +338,35 @@ function compareTokens(appTokens, figmaTokens) {
     
     if (!appToken) {
       // Token doesn't exist in app - it's new
+      console.log(`Token "${figmaToken.name}" is new`);
       changes.added.push(figmaToken);
-    } else if (
-      appToken.value !== figmaToken.value || 
-      appToken.type !== figmaToken.type ||
-      appToken.description !== figmaToken.description
-    ) {
-      // Token exists but has different values - it's modified
-      changes.modified.push(figmaToken);
+    } else {
+      // Normalize values for comparison
+      const appValue = String(appToken.value || '').trim();
+      const figmaValue = String(figmaToken.value || '').trim();
+      const appType = String(appToken.type || '').toLowerCase().trim();
+      const figmaType = String(figmaToken.type || '').toLowerCase().trim();
+      
+      if (appValue !== figmaValue || appType !== figmaType) {
+        // Token exists but has different values - it's modified
+        console.log(`Token "${figmaToken.name}" is modified: ${appValue} -> ${figmaValue}, ${appType} -> ${figmaType}`);
+        changes.modified.push(figmaToken);
+      } else {
+        console.log(`Token "${figmaToken.name}" is unchanged`);
+      }
     }
   });
 
   // Check for deleted tokens (exist in app but not in Figma)
-  appTokens.forEach(appToken => {
-    if (!figmaTokenMap.has(appToken.name)) {
+  appTokenMap.forEach((appToken, name) => {
+    if (!figmaTokenMap.has(name)) {
+      console.log(`Token "${name}" was deleted from Figma`);
       changes.deleted.push(appToken);
     }
   });
 
+  console.log(`Changes summary: ${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted`);
+  
   return changes;
 }
 
