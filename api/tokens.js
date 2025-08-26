@@ -2,7 +2,7 @@
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   // Handle preflight OPTIONS request
@@ -13,6 +13,11 @@ export default async function handler(req, res) {
   // Handle POST requests for pushing tokens
   if (req.method === 'POST') {
     return handlePostTokens(req, res);
+  }
+
+  // Handle DELETE requests for removing tokens
+  if (req.method === 'DELETE') {
+    return handleDeleteTokens(req, res);
   }
 
   // Only allow GET requests for fetching
@@ -170,6 +175,69 @@ async function handlePostTokens(req, res) {
     console.error('Error pushing tokens:', error);
     res.status(500).json({ 
       error: 'Failed to push tokens',
+      message: error.message
+    });
+  }
+}
+
+// Handle DELETE requests for removing tokens from Figma
+async function handleDeleteTokens(req, res) {
+  try {
+    const { tokens } = req.body;
+    
+    if (!tokens || !Array.isArray(tokens)) {
+      return res.status(400).json({ error: 'Invalid tokens data' });
+    }
+
+    // Get Supabase configuration from environment variables
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+    // Check if Supabase is configured
+    if (!supabaseUrl || !supabaseKey || 
+        supabaseUrl === 'your_supabase_project_url_here' ||
+        supabaseKey === 'your_supabase_anon_key_here') {
+      
+      // Return success response even without Supabase (for development)
+      return res.status(200).json({ 
+        message: `Successfully received delete request for ${tokens.length} tokens (Supabase not configured)`,
+        tokens: tokens
+      });
+    }
+
+    // Delete tokens from Supabase
+    const deletePromises = tokens.map(async (token) => {
+      const deleteUrl = token.id 
+        ? `${supabaseUrl}/rest/v1/design_tokens?id=eq.${token.id}`
+        : `${supabaseUrl}/rest/v1/design_tokens?name=eq.${encodeURIComponent(token.name)}`;
+        
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete token ${token.name}: ${response.status} ${response.statusText}`);
+      }
+
+      return response;
+    });
+
+    await Promise.all(deletePromises);
+
+    res.status(200).json({ 
+      message: `Successfully deleted ${tokens.length} tokens from database`,
+      count: tokens.length
+    });
+
+  } catch (error) {
+    console.error('Error deleting tokens:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete tokens',
       message: error.message
     });
   }

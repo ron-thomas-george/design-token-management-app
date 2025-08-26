@@ -148,12 +148,35 @@ figma.ui.onmessage = async (msg) => {
         return;
       }
 
-      // Push tokens to the app via API
-      const result = await pushTokensToApp(figmaTokens);
+      // Fetch current tokens from app to compare
+      const appTokens = await fetchTokensFromAPI();
       
+      // Compare and get only changed tokens
+      const changes = compareTokens(appTokens, figmaTokens);
+      
+      if (changes.added.length === 0 && changes.modified.length === 0 && changes.deleted.length === 0) {
+        figma.ui.postMessage({
+          type: 'success',
+          message: 'No changes detected - all variables are already in sync'
+        });
+        return;
+      }
+
+      // Push only the changed tokens to the app via API
+      const tokensToSync = [...changes.added, ...changes.modified];
+      if (tokensToSync.length > 0) {
+        await pushTokensToApp(tokensToSync);
+      }
+      
+      // Handle deleted tokens if any
+      if (changes.deleted.length > 0) {
+        await deleteTokensFromApp(changes.deleted);
+      }
+      
+      const changeCount = changes.added.length + changes.modified.length + changes.deleted.length;
       figma.ui.postMessage({
         type: 'success',
-        message: `Successfully pushed ${figmaTokens.length} variables to app!`
+        message: `Successfully synced ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`
       });
 
     } catch (error) {
@@ -267,6 +290,79 @@ function convertFigmaValueToToken(value, type) {
   }
   
   return null;
+}
+
+// Compare app tokens with Figma tokens to detect changes
+function compareTokens(appTokens, figmaTokens) {
+  const changes = {
+    added: [],
+    modified: [],
+    deleted: []
+  };
+
+  // Create maps for easier comparison
+  const appTokenMap = new Map();
+  const figmaTokenMap = new Map();
+
+  // Build app token map
+  appTokens.forEach(token => {
+    appTokenMap.set(token.name, token);
+  });
+
+  // Build figma token map
+  figmaTokens.forEach(token => {
+    figmaTokenMap.set(token.name, token);
+  });
+
+  // Check for added and modified tokens
+  figmaTokens.forEach(figmaToken => {
+    const appToken = appTokenMap.get(figmaToken.name);
+    
+    if (!appToken) {
+      // Token doesn't exist in app - it's new
+      changes.added.push(figmaToken);
+    } else if (
+      appToken.value !== figmaToken.value || 
+      appToken.type !== figmaToken.type ||
+      appToken.description !== figmaToken.description
+    ) {
+      // Token exists but has different values - it's modified
+      changes.modified.push(figmaToken);
+    }
+  });
+
+  // Check for deleted tokens (exist in app but not in Figma)
+  appTokens.forEach(appToken => {
+    if (!figmaTokenMap.has(appToken.name)) {
+      changes.deleted.push(appToken);
+    }
+  });
+
+  return changes;
+}
+
+// Delete tokens from the app via API
+async function deleteTokensFromApp(tokens) {
+  try {
+    console.log('Deleting tokens from app...', tokens);
+    
+    const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tokens: tokens.map(t => ({ id: t.id, name: t.name })) })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('API delete error:', error);
+    throw new Error(`Failed to delete tokens from app: ${error.message}`);
+  }
 }
 
 // Push tokens to the app via API
