@@ -327,7 +327,14 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎨 Fragmento Sync</h1>
+    <h1>
+      <svg width="20" height="18" viewBox="0 0 26 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; margin-right: 8px; vertical-align: middle;">
+        <path d="M21.5097 13.1826C22.7135 13.1826 23.3068 14.6466 22.4426 15.4847L14.48 23.2069C13.9556 23.7155 13.2538 23.9999 12.5233 23.9999H3.30663C2.10283 23.9999 1.50953 22.536 2.37369 21.6979L10.3363 13.9756C10.8607 13.467 11.5625 13.1826 12.293 13.1826H21.5097Z" fill="#3ECF8E" fill-opacity="0.8"/>
+        <path d="M21.7714 6.47949C22.9752 6.47949 23.5685 7.94347 22.7043 8.78154L14.8592 16.3898C14.2595 16.9715 13.4568 17.2968 12.6213 17.2968H3.56835C2.36455 17.2968 1.77125 15.8328 2.63541 14.9948L10.598 7.27249C11.1224 6.76391 11.8242 6.47949 12.5547 6.47949H21.7714Z" fill="#3ECF8E" fill-opacity="0.8"/>
+        <path d="M21.5097 4.02872e-07C22.7135 4.55492e-07 23.3068 1.46398 22.4426 2.30205L14.48 10.0243C13.9556 10.5329 13.2538 10.8173 12.5233 10.8173H3.30663C2.10283 10.8173 1.50953 9.35334 2.37369 8.51527L10.3363 0.793002C10.8607 0.284423 11.5625 -3.1932e-08 12.293 0L21.5097 4.02872e-07Z" fill="#3ECF8E" fill-opacity="0.8"/>
+      </svg>
+      Fragmento Sync
+    </h1>
     
     
     <!-- Connection Status -->
@@ -389,6 +396,10 @@
           <span class="button-icon">📐</span>
           <span class="button-text">Create Variables</span>
         </button>
+        <button class="button-minimal" id="pushBtn" disabled>
+          <span class="button-icon">📤</span>
+          <span class="button-text">Push to App</span>
+        </button>
       </div>
     </div>
     
@@ -411,6 +422,7 @@
     const checkChangesBtn = document.getElementById('checkChangesBtn');
     const importBtn = document.getElementById('importBtn');
     const variablesBtn = document.getElementById('variablesBtn');
+    const pushBtn = document.getElementById('pushBtn');
     const closeBtn = document.getElementById('closeBtn');
     const statusMessage = document.getElementById('statusMessage');
     const statusDot = document.getElementById('statusDot');
@@ -425,6 +437,7 @@
     checkChangesBtn.addEventListener('click', checkChanges);
     importBtn.addEventListener('click', importTokens);
     variablesBtn.addEventListener('click', createVariablesOnly);
+    pushBtn.addEventListener('click', pushVariablesToApp);
     closeBtn.addEventListener('click', closePlugin);
     
     
@@ -479,6 +492,18 @@
         pluginMessage: { 
           type: 'create-variables-only', 
           tokens: tokens 
+        } 
+      }, '*');
+    }
+    
+    // Push variables to app
+    function pushVariablesToApp() {
+      showStatus('Reading Figma variables...', 'info');
+      pushBtn.disabled = true;
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'push-variables-to-app'
         } 
       }, '*');
     }
@@ -590,6 +615,9 @@
         importBtn.disabled = tokens.length === 0;
         variablesBtn.disabled = tokens.length === 0;
         
+        // Enable push button - it works independently of fetched tokens
+        pushBtn.disabled = false;
+        
         updateConnectionStatus(true, `${tokens.length} tokens loaded`);
         updateStats(tokens.length);
         showStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
@@ -614,6 +642,7 @@
       if (msg.type === 'success') {
         importBtn.disabled = false;
         variablesBtn.disabled = false;
+        pushBtn.disabled = false;
         showStatus(msg.message, 'success');
       }
       
@@ -622,13 +651,21 @@
         checkChangesBtn.disabled = false;
         importBtn.disabled = false;
         variablesBtn.disabled = false;
+        pushBtn.disabled = false;
         updateConnectionStatus(false, msg.error || msg.message);
         showStatus(msg.error || msg.message, 'error');
       }
     };
     
+    // Initialize and check for existing Figma variables
+    function initializePlugin() {
+      // Enable push button immediately since it works with existing Figma variables
+      pushBtn.disabled = false;
+      showStatus('Ready to connect', 'info');
+    }
+    
     // Initialize
-    showStatus('Ready to connect', 'info');
+    initializePlugin();
   </script>
 </body>
 </html>

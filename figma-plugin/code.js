@@ -136,6 +136,33 @@ figma.ui.onmessage = async (msg) => {
         message: 'Error creating variables: ' + error.message
       });
     }
+  } else if (msg.type === 'push-variables-to-app') {
+    try {
+      const figmaTokens = await extractFigmaVariables();
+      
+      if (figmaTokens.length === 0) {
+        figma.ui.postMessage({
+          type: 'error',
+          message: 'No Fragmento variables found in Figma to push'
+        });
+        return;
+      }
+
+      // Push tokens to the app via API
+      const result = await pushTokensToApp(figmaTokens);
+      
+      figma.ui.postMessage({
+        type: 'success',
+        message: `Successfully pushed ${figmaTokens.length} variables to app!`
+      });
+
+    } catch (error) {
+      console.error('Error pushing variables to app:', error);
+      figma.ui.postMessage({
+        type: 'error',
+        message: 'Error pushing variables to app: ' + error.message
+      });
+    }
   } else if (msg.type === 'close-plugin') {
     figma.closePlugin();
   }
@@ -170,6 +197,101 @@ async function fetchTokensFromSupabase() {
   }
 }
 
+
+// Extract Figma variables and convert to token format
+async function extractFigmaVariables() {
+  const figmaTokens = [];
+  
+  // Get all local variable collections
+  const collections = figma.variables.getLocalVariableCollections();
+  
+  // Filter for Fragmento collections
+  const fragmentoCollections = collections.filter(collection => 
+    collection.name.startsWith('Fragmento - ')
+  );
+  
+  for (const collection of fragmentoCollections) {
+    // Extract token type from collection name (e.g., "Fragmento - Colors" -> "colors")
+    const type = collection.name.replace('Fragmento - ', '').toLowerCase();
+    
+    // Get all variables in this collection
+    const variables = collection.variableIds.map(id => 
+      figma.variables.getVariableById(id)
+    ).filter(variable => variable !== null);
+    
+    for (const variable of variables) {
+      // Get the default mode value
+      const modes = Object.keys(variable.valuesByMode);
+      if (modes.length === 0) continue;
+      
+      const defaultMode = modes[0];
+      const value = variable.valuesByMode[defaultMode];
+      
+      // Convert Figma value to token format
+      let tokenValue = convertFigmaValueToToken(value, type);
+      
+      if (tokenValue !== null) {
+        figmaTokens.push({
+          name: variable.name,
+          value: tokenValue,
+          type: type,
+          description: variable.description || `${type} token from Figma`
+        });
+      }
+    }
+  }
+  
+  return figmaTokens;
+}
+
+// Convert Figma variable values to token format
+function convertFigmaValueToToken(value, type) {
+  if (typeof value === 'object' && value !== null) {
+    // Handle color values (RGB objects)
+    if ('r' in value && 'g' in value && 'b' in value) {
+      const r = Math.round(value.r * 255);
+      const g = Math.round(value.g * 255);
+      const b = Math.round(value.b * 255);
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+  }
+  
+  // Handle numeric values (spacing, border-radius, etc.)
+  if (typeof value === 'number') {
+    return `${value}px`;
+  }
+  
+  // Handle string values
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  return null;
+}
+
+// Push tokens to the app via API
+async function pushTokensToApp(tokens) {
+  try {
+    console.log('Pushing tokens to app...', tokens);
+    
+    const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tokens })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('API push error:', error);
+    throw new Error(`Failed to push tokens to app: ${error.message}`);
+  }
+}
 
 // Fallback API fetch
 async function fetchTokensFromAPI() {
@@ -283,8 +405,8 @@ async function createTokensVisualization(tokens) {
     headerBg.y = currentY;
     
     const typeHeader = figma.createText();
-    await figma.loadFontAsync({ family: "Inter", style: "Bold" });
-    typeHeader.fontName = { family: "Inter", style: "Bold" };
+    await figma.loadFontAsync({ family: "Poppins", style: "Bold" });
+    typeHeader.fontName = { family: "Poppins", style: "Bold" };
     typeHeader.fontSize = 16;
     typeHeader.characters = `${type.charAt(0).toUpperCase() + type.slice(1)} (${typeTokens.length})`;
     typeHeader.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
@@ -313,8 +435,8 @@ async function createTokensVisualization(tokens) {
 
   // Add timestamp
   const timestamp = figma.createText();
-  await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-  timestamp.fontName = { family: "Inter", style: "Regular" };
+  await figma.loadFontAsync({ family: "Poppins", style: "Regular" });
+  timestamp.fontName = { family: "Poppins", style: "Regular" };
   timestamp.fontSize = 10;
   timestamp.characters = `Last updated: ${new Date().toLocaleString()}`;
   timestamp.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.6, b: 0.6 } }];
@@ -340,8 +462,8 @@ async function createEnhancedTokenVisualization(token) {
 
   // Token name
   const nameText = figma.createText();
-  await figma.loadFontAsync({ family: "Inter", style: "Medium" });
-  nameText.fontName = { family: "Inter", style: "Medium" };
+  await figma.loadFontAsync({ family: "Poppins", style: "Medium" });
+  nameText.fontName = { family: "Poppins", style: "Medium" };
   nameText.fontSize = 14;
   nameText.characters = token.name;
   nameText.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.2, b: 0.2 } }];
@@ -358,8 +480,8 @@ async function createEnhancedTokenVisualization(token) {
 
   // Token value text
   const valueText = figma.createText();
-  await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-  valueText.fontName = { family: "Inter", style: "Regular" };
+  await figma.loadFontAsync({ family: "Poppins", style: "Regular" });
+  valueText.fontName = { family: "Poppins", style: "Regular" };
   valueText.fontSize = 12;
   valueText.characters = token.value;
   valueText.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }];
@@ -371,8 +493,8 @@ async function createEnhancedTokenVisualization(token) {
   // Description if available
   if (token.description) {
     const descText = figma.createText();
-    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-    descText.fontName = { family: "Inter", style: "Regular" };
+    await figma.loadFontAsync({ family: "Poppins", style: "Regular" });
+    descText.fontName = { family: "Poppins", style: "Regular" };
     descText.fontSize = 10;
     descText.characters = token.description;
     descText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.6, b: 0.6 } }];
@@ -400,8 +522,8 @@ async function createTokenValueElement(token) {
     return colorSwatch;
   } else if (token.type === 'typography') {
     const textSample = figma.createText();
-    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-    textSample.fontName = { family: "Inter", style: "Regular" };
+    await figma.loadFontAsync({ family: "Poppins", style: "Regular" });
+    textSample.fontName = { family: "Poppins", style: "Regular" };
     textSample.fontSize = 14;
     textSample.characters = "Aa";
     textSample.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
@@ -417,8 +539,8 @@ async function createTokenValueElement(token) {
     return spacingBox;
   } else {
     const genericText = figma.createText();
-    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
-    genericText.fontName = { family: "Inter", style: "Regular" };
+    await figma.loadFontAsync({ family: "Poppins", style: "Regular" });
+    genericText.fontName = { family: "Poppins", style: "Regular" };
     genericText.fontSize = 12;
     genericText.characters = "●";
     genericText.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
