@@ -128,8 +128,8 @@ export default async function handler(req, res) {
         body: JSON.stringify({ last_used_at: new Date().toISOString() })
       });
 
-      // Fetch user-specific tokens directly from design_tokens table
-      const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=eq.${userId}&order=created_at.desc`, {
+      // First try user-specific tokens, then fall back to tokens with null user_id
+      let response = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=eq.${userId}&order=created_at.desc`, {
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
@@ -137,28 +137,30 @@ export default async function handler(req, res) {
         }
       });
 
-      if (!response.ok) {
-        console.error('Token fetch failed:', response.status, response.statusText);
-        // If user-specific query fails, try fetching tokens without user_id filter (for existing tokens)
-        const fallbackResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
+      let tokens = [];
+      if (response.ok) {
+        tokens = await response.json();
+        console.log(`Found ${tokens.length} user-specific tokens for user ${userId}`);
+      }
+
+      // If no user-specific tokens found, also fetch tokens with null user_id (legacy tokens)
+      if (tokens.length === 0) {
+        console.log('No user-specific tokens found, fetching tokens with null user_id');
+        const nullUserResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=is.null&order=created_at.desc`, {
           headers: {
             'apikey': supabaseKey,
             'Authorization': `Bearer ${supabaseKey}`,
             'Content-Type': 'application/json'
           }
         });
-        
-        if (fallbackResponse.ok) {
-          const allTokens = await fallbackResponse.json();
-          console.log(`Found ${allTokens.length} tokens without user_id filter`);
-          return res.status(200).json(allTokens);
+
+        if (nullUserResponse.ok) {
+          const nullUserTokens = await nullUserResponse.json();
+          console.log(`Found ${nullUserTokens.length} tokens with null user_id`);
+          tokens = nullUserTokens;
         }
-        
-        throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
       }
 
-      const tokens = await response.json();
-      console.log(`Found ${tokens.length} user-specific tokens for user ${userId}`);
       return res.status(200).json(tokens);
     }
 
