@@ -74,15 +74,13 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Invalid API key' });
       }
 
-      // Fetch user-specific tokens using RPC function
-      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_user_tokens`, {
-        method: 'POST',
+      // Fetch user-specific tokens directly from design_tokens table
+      const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=eq.${userId}&order=created_at.desc`, {
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ user_uuid: userId })
+        }
       });
 
       if (!response.ok) {
@@ -93,21 +91,8 @@ export default async function handler(req, res) {
       return res.status(200).json(tokens);
     }
 
-    // Fallback: Fetch all tokens (for backward compatibility)
-    const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
-    }
-
-    const tokens = await response.json();
-    res.status(200).json(tokens);
+    // Fallback: Return empty array if no API key provided since RLS blocks unauthenticated access
+    return res.status(200).json([]);
 
   } catch (error) {
     console.error('Error fetching tokens:', error);
