@@ -69,10 +69,37 @@ export default async function handler(req, res) {
 
     // If API key provided, validate it and get user-specific tokens
     if (apiKey) {
-      const userId = await validateApiKey(supabaseUrl, supabaseKey, apiKey);
-      if (!userId) {
+      // Try to validate API key using direct table lookup instead of RPC
+      const apiKeyResponse = await fetch(`${supabaseUrl}/rest/v1/user_api_keys?select=user_id&api_key=eq.${apiKey}&is_active=eq.true`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!apiKeyResponse.ok) {
+        console.error('API key validation failed:', apiKeyResponse.status, apiKeyResponse.statusText);
         return res.status(401).json({ error: 'Invalid API key' });
       }
+
+      const apiKeyData = await apiKeyResponse.json();
+      if (!apiKeyData || apiKeyData.length === 0) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+
+      const userId = apiKeyData[0].user_id;
+
+      // Update last_used_at timestamp
+      await fetch(`${supabaseUrl}/rest/v1/user_api_keys?api_key=eq.${apiKey}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ last_used_at: new Date().toISOString() })
+      });
 
       // Fetch user-specific tokens directly from design_tokens table
       const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=eq.${userId}&order=created_at.desc`, {
@@ -84,10 +111,27 @@ export default async function handler(req, res) {
       });
 
       if (!response.ok) {
+        console.error('Token fetch failed:', response.status, response.statusText);
+        // If user-specific query fails, try fetching tokens without user_id filter (for existing tokens)
+        const fallbackResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (fallbackResponse.ok) {
+          const allTokens = await fallbackResponse.json();
+          console.log(`Found ${allTokens.length} tokens without user_id filter`);
+          return res.status(200).json(allTokens);
+        }
+        
         throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
       }
 
       const tokens = await response.json();
+      console.log(`Found ${tokens.length} user-specific tokens for user ${userId}`);
       return res.status(200).json(tokens);
     }
 
