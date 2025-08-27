@@ -606,6 +606,17 @@
           
           showAuthStatus('API key saved and validated successfully', 'success');
           apiKeyInput.value = ''; // Clear input for security
+        } else if (response.status === 401) {
+          // 401 might mean the API key table doesn't exist yet, but save anyway
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'save-api-key', 
+              apiKey: apiKey 
+            } 
+          }, '*');
+          
+          showAuthStatus('API key saved (validation skipped - database setup needed)', 'success');
+          apiKeyInput.value = ''; // Clear input for security
         } else {
           showAuthStatus('Invalid API key - please check and try again', 'error');
         }

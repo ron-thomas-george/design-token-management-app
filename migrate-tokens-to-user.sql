@@ -1,16 +1,26 @@
 -- Migration script to assign existing tokens to the authenticated user
 -- Run this after creating a user account and getting your user ID
 
--- First, get your user ID (replace with your actual user ID)
--- You can find this in Supabase Auth > Users section
--- Example: UPDATE design_tokens SET user_id = 'your-user-id-here' WHERE user_id IS NULL;
+-- First, handle duplicate token names by adding a suffix to duplicates
+WITH duplicate_tokens AS (
+    SELECT 
+        id,
+        name,
+        ROW_NUMBER() OVER (PARTITION BY name ORDER BY created_at) as rn
+    FROM design_tokens 
+    WHERE user_id IS NULL
+),
+tokens_to_rename AS (
+    SELECT id, name || '_' || rn as new_name
+    FROM duplicate_tokens 
+    WHERE rn > 1
+)
+UPDATE design_tokens 
+SET name = tokens_to_rename.new_name
+FROM tokens_to_rename
+WHERE design_tokens.id = tokens_to_rename.id;
 
--- Option 1: If you know your user ID, uncomment and replace the UUID below:
--- UPDATE design_tokens 
--- SET user_id = 'your-user-id-here'
--- WHERE user_id IS NULL;
-
--- Option 2: Assign all null tokens to the first user (if you're the only user):
+-- Now safely assign all null tokens to the first user
 UPDATE design_tokens 
 SET user_id = (
     SELECT id 
@@ -24,5 +34,6 @@ WHERE user_id IS NULL;
 SELECT 
     COUNT(*) as total_tokens,
     COUNT(user_id) as tokens_with_user_id,
-    COUNT(*) - COUNT(user_id) as tokens_without_user_id
+    COUNT(*) - COUNT(user_id) as tokens_without_user_id,
+    COUNT(DISTINCT name) as unique_names
 FROM design_tokens;
