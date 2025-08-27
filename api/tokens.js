@@ -1,5 +1,6 @@
 // Vercel API endpoint to provide tokens to Figma plugin
 export default async function handler(req, res) {
+  // Force deployment update - timestamp: 2025-08-27T18:44:58
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
