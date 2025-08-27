@@ -36,11 +36,16 @@ export default async function handler(req, res) {
           }
         });
         
+        console.log('Debug response status:', debugResponse.status);
+        const responseText = await debugResponse.text();
+        console.log('Debug response text:', responseText);
+        
         if (debugResponse.ok) {
-          const allKeys = await debugResponse.json();
+          const allKeys = JSON.parse(responseText);
           return res.status(200).json({ 
             message: 'Debug info',
             total_keys: allKeys.length,
+            table_exists: true,
             keys: allKeys.map(k => ({
               user_id: k.user_id,
               key_preview: k.api_key ? k.api_key.substring(0, 10) + '...' : 'null',
@@ -48,10 +53,22 @@ export default async function handler(req, res) {
               created_at: k.created_at
             }))
           });
+        } else {
+          return res.status(200).json({
+            message: 'Debug info - table query failed',
+            table_exists: false,
+            error_status: debugResponse.status,
+            error_text: responseText,
+            total_keys: 0,
+            keys: []
+          });
         }
       } catch (error) {
         console.error('Debug query failed:', error);
-        return res.status(500).json({ error: 'Debug query failed' });
+        return res.status(500).json({ 
+          error: 'Debug query failed',
+          message: error.message 
+        });
       }
     }
 
