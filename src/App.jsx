@@ -87,7 +87,12 @@ function AppContent() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {currentView === 'tokens' && <TokenManagement />}
-          {currentView === 'integrations' && <Integrations />}
+          {currentView === 'integrations' && (
+            <div className="text-center py-12">
+              <h2 className="text-2xl font-bold text-white mb-4">Integrations</h2>
+              <p className="text-gray-400">Coming soon - GitHub and Slack integrations</p>
+            </div>
+          )}
           {currentView === 'settings' && <ApiKeySettings />}
         </div>
       </main>
