@@ -7,18 +7,24 @@ import { pushTokensToGitHub } from '../services/githubService'
 import { createSlackService } from '../services/slackService'
 import { debugGitHubPush, testGitHubAuth } from '../utils/debugGitHub'
 import { supabaseTokenService } from '../services/supabaseService'
+import { useAuth } from '../contexts/AuthContext'
 
 const TokenManagement = () => {
+  const { user } = useAuth()
   const [tokens, setTokens] = useState([])
   const [changedTokens, setChangedTokens] = useState(new Set())
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingToken, setEditingToken] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Load tokens from Supabase on mount
+  // Load tokens from Supabase on mount, but only if user is authenticated
   useEffect(() => {
-    loadTokensFromSupabase()
-  }, [])
+    if (user) {
+      loadTokensFromSupabase()
+    } else {
+      setTokens([])
+    }
+  }, [user])
 
   const loadTokensFromSupabase = async () => {
     setIsLoading(true)
@@ -315,6 +321,23 @@ figma.closePlugin("Fragmento tokens imported successfully!");
       console.error('Slack notification error:', error)
       // Don't show error to user as this is a background operation
     }
+  }
+
+  // Show sign-in prompt if user is not authenticated
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+        <div className="bg-[#0f1419] p-8 rounded-lg border border-[#2d3748] max-w-md">
+          <h2 className="text-xl font-bold text-white mb-4">Sign In Required</h2>
+          <p className="text-gray-400 mb-6">
+            Please sign in to view and manage your design tokens.
+          </p>
+          <p className="text-sm text-gray-500">
+            Click the "Sign In" button in the top right corner to get started.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
