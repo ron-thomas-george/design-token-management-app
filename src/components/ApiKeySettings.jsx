@@ -60,6 +60,7 @@ const ApiKeySettings = () => {
 
       // Insert directly into user_api_keys table using RPC function to bypass RLS
       const { data, error } = await supabase.rpc('create_api_key', {
+        p_api_key: newApiKey,
         p_name: newKeyName
       });
 
@@ -71,9 +72,8 @@ const ApiKeySettings = () => {
       }
 
       console.log('API key inserted successfully:', data);
-      // The RPC function returns the generated API key
-      const generatedKey = data;
-      setShowNewKey(generatedKey);
+      // The RPC function returns the key ID, but we use our generated key
+      setShowNewKey(newApiKey);
       setNewKeyName('Figma Plugin Key');
       await fetchApiKeys();
     } catch (error) {
