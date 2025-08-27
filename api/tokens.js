@@ -69,6 +69,8 @@ export default async function handler(req, res) {
 
     // If API key provided, validate it and get user-specific tokens
     if (apiKey) {
+      console.log('Validating API key:', apiKey.substring(0, 10) + '...');
+      
       // Try to validate API key using direct table lookup instead of RPC
       const apiKeyResponse = await fetch(`${supabaseUrl}/rest/v1/user_api_keys?select=user_id&api_key=eq.${apiKey}&is_active=eq.true`, {
         headers: {
@@ -78,13 +80,38 @@ export default async function handler(req, res) {
         }
       });
 
+      console.log('API key validation response:', apiKeyResponse.status, apiKeyResponse.statusText);
+
       if (!apiKeyResponse.ok) {
-        console.error('API key validation failed:', apiKeyResponse.status, apiKeyResponse.statusText);
+        const errorText = await apiKeyResponse.text();
+        console.error('API key validation failed:', apiKeyResponse.status, apiKeyResponse.statusText, errorText);
+        
+        // If user_api_keys table doesn't exist, fall back to fetching all tokens
+        if (apiKeyResponse.status === 404 || errorText.includes('relation "public.user_api_keys" does not exist')) {
+          console.log('user_api_keys table does not exist, falling back to all tokens');
+          const fallbackResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResponse.ok) {
+            const allTokens = await fallbackResponse.json();
+            console.log(`Found ${allTokens.length} tokens (fallback mode)`);
+            return res.status(200).json(allTokens);
+          }
+        }
+        
         return res.status(401).json({ error: 'Invalid API key' });
       }
 
       const apiKeyData = await apiKeyResponse.json();
+      console.log('API key data:', apiKeyData);
+      
       if (!apiKeyData || apiKeyData.length === 0) {
+        console.log('No matching API key found');
         return res.status(401).json({ error: 'Invalid API key' });
       }
 
