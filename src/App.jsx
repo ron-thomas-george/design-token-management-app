@@ -1,16 +1,18 @@
-import React, { useState } from 'react'
-import { Toaster } from 'react-hot-toast'
-import TokenManagement from './components/TokenManagement'
-import Integrations from './components/Integrations'
-import ApiKeySettings from './components/ApiKeySettings'
-import { AuthProvider } from './contexts/AuthContext'
-import { Settings, Palette } from 'lucide-react'
+import React, { useState } from 'react';
+import TokenManagement from './components/TokenManagement';
+import ApiKeySettings from './components/ApiKeySettings';
+import AuthModal from './components/AuthModal';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Toaster } from 'react-hot-toast';
+import { Settings, Palette } from 'lucide-react';
+import './App.css';
 
-function App() {
-  const [currentView, setCurrentView] = useState('tokens')
+function AppContent() {
+  const [currentView, setCurrentView] = useState('tokens');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, signOut } = useAuth();
 
   return (
-    <AuthProvider>
       <div className="min-h-screen bg-[#0f1419]">
       {/* Header */}
       <header className="bg-[#0f1419] border-b border-[#2d3748]">
@@ -24,7 +26,8 @@ function App() {
               </svg>
               <h1 className="text-xl font-bold text-white">Fragmento</h1>
             </div>
-            <nav className="flex space-x-4">
+            <div className="flex items-center space-x-4">
+              <nav className="flex space-x-4">
               <button
                 onClick={() => setCurrentView('tokens')}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -55,7 +58,27 @@ function App() {
               >
                 Settings
               </button>
-            </nav>
+              </nav>
+              
+              {user ? (
+                <div className="flex items-center space-x-3">
+                  <span className="text-gray-300 text-sm">{user.email}</span>
+                  <button
+                    onClick={signOut}
+                    className="px-3 py-1 text-sm text-gray-400 hover:text-white border border-gray-600 rounded-md hover:border-gray-500"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-4 py-2 bg-[#3ecf8e] text-black font-medium rounded-md hover:bg-[#2db574]"
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -68,9 +91,21 @@ function App() {
           {currentView === 'settings' && <ApiKeySettings />}
         </div>
       </main>
+        <AuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => setShowAuthModal(false)} 
+        />
+        <Toaster position="top-right" />
       </div>
+    );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
-  )
+  );
 }
 
 export default App
