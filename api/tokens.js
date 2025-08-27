@@ -228,29 +228,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error fetching tokens:', error);
     
-    // Return mock tokens as fallback
-    const mockTokens = [
-      {
-        id: '1',
-        name: 'primary-color',
-        type: 'color',
-        value: '#3B82F6',
-        category: 'colors',
-        description: 'Primary brand color',
-        created_at: new Date().toISOString()
-      },
-      {
-        id: '2',
-        name: 'secondary-color',
-        type: 'color',
-        value: '#10B981',
-        category: 'colors',
-        description: 'Secondary brand color',
-        created_at: new Date().toISOString()
-      }
-    ];
-    
-    res.status(200).json(mockTokens);
+    // Return empty array instead of mock tokens to prevent false "connected" status
+    res.status(500).json({ error: 'Failed to fetch tokens', tokens: [] });
   }
 }
 
