@@ -104,6 +104,14 @@ export default async function handler(req, res) {
           }
         }
         
+        // If API key not found but table exists, provide helpful error
+        if (apiKeyResponse.status === 200) {
+          console.log('API key table exists but key not found - need to generate API key first');
+          return res.status(401).json({ 
+            error: 'API key not found. Please generate an API key in the web app Settings page first.' 
+          });
+        }
+        
         return res.status(401).json({ error: 'Invalid API key' });
       }
 
