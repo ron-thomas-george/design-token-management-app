@@ -413,6 +413,7 @@ async function pushTokensToApp(tokens) {
 async function fetchTokensFromAPI() {
   try {
     console.log('Attempting to fetch from API...');
+    console.log('Current userApiKey:', userApiKey ? userApiKey.substring(0, 10) + '...' : 'null');
     
     const headers = {
       'Accept': 'application/json',
@@ -422,6 +423,9 @@ async function fetchTokensFromAPI() {
     // Add API key if available
     if (userApiKey) {
       headers['X-API-Key'] = userApiKey;
+      console.log('Added API key to headers');
+    } else {
+      console.log('No API key available, making unauthenticated request');
     }
 
     const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
@@ -432,6 +436,8 @@ async function fetchTokensFromAPI() {
     console.log('API Response status:', response.status);
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.log('API error response:', errorText);
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
     
