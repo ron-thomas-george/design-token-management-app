@@ -118,9 +118,11 @@ export default async function handler(req, res) {
 
       const apiKeyData = await apiKeyResponse.json();
       console.log('API key data:', apiKeyData);
+      console.log('API key data length:', apiKeyData ? apiKeyData.length : 'null');
+      console.log('API key data type:', typeof apiKeyData);
       
       if (!apiKeyData || apiKeyData.length === 0) {
-        console.log('No matching API key found');
+        console.log('No matching API key found - returning 401');
         return res.status(401).json({ error: 'Invalid API key' });
       }
 
