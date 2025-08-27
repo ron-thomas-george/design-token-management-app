@@ -587,19 +587,13 @@
       }
 
       try {
-        // Validate API key directly against Supabase database
-        // TODO: Replace these with your actual Supabase credentials
-        const supabaseUrl = 'YOUR_SUPABASE_URL_HERE';
-        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY_HERE';
-        
-        const response = await fetch(`${supabaseUrl}/rest/v1/rpc/validate_api_key`, {
-          method: 'POST',
+        // Test the API key by making a request to our API endpoint
+        const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
+          method: 'GET',
           headers: {
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
+            'X-API-Key': apiKey,
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ api_key_input: apiKey })
+          }
         });
 
         if (response.ok) {
