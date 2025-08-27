@@ -22,8 +22,11 @@ export default async function handler(req, res) {
 
   try {
     // Get Supabase configuration from environment variables
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    
+    console.log('Supabase URL configured:', !!supabaseUrl);
+    console.log('Supabase Key configured:', !!supabaseKey);
 
     // Debug endpoint - check all API keys in database
     if (req.query.debug === 'keys') {
