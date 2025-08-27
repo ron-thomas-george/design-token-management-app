@@ -72,8 +72,8 @@ const ApiKeySettings = () => {
       }
 
       console.log('API key inserted successfully:', data);
-      // The RPC function returns the key ID, but we use our generated key
-      setShowNewKey(newApiKey);
+      // The RPC function returns the API key itself
+      setShowNewKey(data);
       setNewKeyName('Figma Plugin Key');
       await fetchApiKeys();
     } catch (error) {
