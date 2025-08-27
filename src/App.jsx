@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import TokenManagement from './components/TokenManagement'
 import Integrations from './components/Integrations'
+import ApiKeySettings from './components/ApiKeySettings'
 import { Settings, Palette } from 'lucide-react'
 
 function App() {
@@ -42,6 +43,16 @@ function App() {
               >
                 Integrations
               </button>
+              <button
+                onClick={() => setCurrentView('settings')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentView === 'settings'
+                    ? 'bg-[#3ecf8e]/10 text-[#3ecf8e] border border-[#3ecf8e]/20'
+                    : 'text-gray-400 hover:text-white hover:bg-[#2d3748]'
+                }`}
+              >
+                Settings
+              </button>
             </nav>
           </div>
         </div>
@@ -50,7 +61,9 @@ function App() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          {currentView === 'tokens' ? <TokenManagement /> : <Integrations />}
+          {currentView === 'tokens' && <TokenManagement />}
+          {currentView === 'integrations' && <Integrations />}
+          {currentView === 'settings' && <ApiKeySettings />}
         </div>
       </main>
     </div>

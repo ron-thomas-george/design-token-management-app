@@ -4,15 +4,24 @@ figma.showUI(__html__, { width: 450, height: 700 });
 // Store for tracking token changes
 let lastTokenSync = null;
 let currentTokens = [];
+let lastFigmaVariablesSnapshot = null;
+let userApiKey = null;
 
 // Initialize plugin on load
 initializePlugin();
 
 async function initializePlugin() {
+  // Load stored API key
+  userApiKey = await figma.clientStorage.getAsync('userApiKey');
+  
+  // Initialize the Figma variables snapshot on plugin load
+  await initializeFigmaVariablesSnapshot();
+  
   figma.ui.postMessage({ 
     type: 'plugin-initialized', 
     success: true, 
-    message: 'Plugin ready - using API endpoint for tokens' 
+    message: 'Plugin ready - using API endpoint for tokens',
+    hasApiKey: !!userApiKey
   });
 }
 
@@ -138,9 +147,9 @@ figma.ui.onmessage = async (msg) => {
     }
   } else if (msg.type === 'push-variables-to-app') {
     try {
-      const figmaTokens = await extractFigmaVariables();
+      const currentFigmaTokens = await extractFigmaVariables();
       
-      if (figmaTokens.length === 0) {
+      if (currentFigmaTokens.length === 0) {
         figma.ui.postMessage({
           type: 'error',
           message: 'No Fragmento variables found in Figma to push'
@@ -148,41 +157,34 @@ figma.ui.onmessage = async (msg) => {
         return;
       }
 
-      // Fetch current tokens from app to compare
-      const appTokens = await fetchTokensFromAPI();
-      
-      // Debug logging
-      console.log('App tokens:', appTokens);
-      console.log('Figma tokens:', figmaTokens);
-      
-      // Compare and get only changed tokens
-      const changes = compareTokens(appTokens, figmaTokens);
-      
-      console.log('Detected changes:', changes);
+      // Compare with last snapshot to detect changes
+      const changes = detectFigmaVariableChanges(lastFigmaVariablesSnapshot, currentFigmaTokens);
       
       if (changes.added.length === 0 && changes.modified.length === 0 && changes.deleted.length === 0) {
         figma.ui.postMessage({
           type: 'success',
-          message: 'No changes detected - all variables are already in sync'
+          message: 'No changes detected - nothing to push'
         });
         return;
       }
 
-      // Push only the changed tokens to the app via API
+      // Only push changed tokens
       const tokensToSync = [...changes.added, ...changes.modified];
+      
       if (tokensToSync.length > 0) {
         await pushTokensToApp(tokensToSync);
       }
       
-      // Handle deleted tokens if any
-      if (changes.deleted.length > 0) {
-        await deleteTokensFromApp(changes.deleted);
-      }
+      // Handle deletions if needed (could be implemented later)
+      // For now, we'll just sync additions and modifications
+      
+      // Update snapshot after successful push
+      lastFigmaVariablesSnapshot = currentFigmaTokens;
       
       const changeCount = changes.added.length + changes.modified.length + changes.deleted.length;
       figma.ui.postMessage({
         type: 'success',
-        message: `Successfully synced ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`
+        message: `Successfully pushed ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`
       });
 
     } catch (error) {
@@ -190,6 +192,36 @@ figma.ui.onmessage = async (msg) => {
       figma.ui.postMessage({
         type: 'error',
         message: 'Error pushing variables to app: ' + error.message
+      });
+    }
+  } else if (msg.type === 'save-api-key') {
+    try {
+      userApiKey = msg.apiKey;
+      await figma.clientStorage.setAsync('userApiKey', userApiKey);
+      
+      figma.ui.postMessage({
+        type: 'success',
+        message: 'API key saved successfully'
+      });
+    } catch (error) {
+      figma.ui.postMessage({
+        type: 'error',
+        message: 'Failed to save API key: ' + error.message
+      });
+    }
+  } else if (msg.type === 'clear-api-key') {
+    try {
+      userApiKey = null;
+      await figma.clientStorage.deleteAsync('userApiKey');
+      
+      figma.ui.postMessage({
+        type: 'success',
+        message: 'API key cleared successfully'
+      });
+    } catch (error) {
+      figma.ui.postMessage({
+        type: 'error',
+        message: 'Failed to clear API key: ' + error.message
       });
     }
   } else if (msg.type === 'close-plugin') {
@@ -298,99 +330,51 @@ function convertFigmaValueToToken(value, type) {
   return null;
 }
 
-// Compare app tokens with Figma tokens to detect changes
-function compareTokens(appTokens, figmaTokens) {
+// Detect changes between Figma variable snapshots
+function detectFigmaVariableChanges(previousSnapshot, currentTokens) {
   const changes = {
     added: [],
     modified: [],
     deleted: []
   };
 
-  // Ensure we have arrays
-  if (!Array.isArray(appTokens)) appTokens = [];
-  if (!Array.isArray(figmaTokens)) figmaTokens = [];
+  // If no previous snapshot, all current tokens are new
+  if (!previousSnapshot || previousSnapshot.length === 0) {
+    changes.added = [...currentTokens];
+    return changes;
+  }
 
-  console.log(`Comparing ${appTokens.length} app tokens with ${figmaTokens.length} figma tokens`);
+  // Create maps for easier comparison
+  const previousMap = new Map(previousSnapshot.map(token => [token.name, token]));
+  const currentMap = new Map(currentTokens.map(token => [token.name, token]));
 
-  // Create maps for easier comparison - only include Fragmento tokens from app
-  const appTokenMap = new Map();
-  const figmaTokenMap = new Map();
-
-  // Build app token map - filter for tokens that came from Figma (have "from Figma" in description or are Fragmento tokens)
-  appTokens.forEach(token => {
-    if (token.name && (token.description?.includes('from Figma') || token.description?.includes('token from Figma'))) {
-      appTokenMap.set(token.name, token);
-    }
-  });
-
-  // Build figma token map
-  figmaTokens.forEach(token => {
-    if (token.name) {
-      figmaTokenMap.set(token.name, token);
-    }
-  });
-
-  console.log(`App token map has ${appTokenMap.size} tokens, Figma token map has ${figmaTokenMap.size} tokens`);
-
-  // Check for added and modified tokens
-  figmaTokens.forEach(figmaToken => {
-    const appToken = appTokenMap.get(figmaToken.name);
+  // Find added and modified tokens
+  for (const [name, currentToken] of currentMap) {
+    const previousToken = previousMap.get(name);
     
-    if (!appToken) {
-      // Token doesn't exist in app - it's new
-      console.log(`Token "${figmaToken.name}" is new`);
-      changes.added.push(figmaToken);
-    } else {
-      // Normalize values for comparison
-      const appValue = String(appToken.value || '').trim();
-      const figmaValue = String(figmaToken.value || '').trim();
-      const appType = String(appToken.type || '').toLowerCase().trim();
-      const figmaType = String(figmaToken.type || '').toLowerCase().trim();
-      
-      if (appValue !== figmaValue || appType !== figmaType) {
-        // Token exists but has different values - it's modified
-        console.log(`Token "${figmaToken.name}" is modified: ${appValue} -> ${figmaValue}, ${appType} -> ${figmaType}`);
-        changes.modified.push(figmaToken);
-      } else {
-        console.log(`Token "${figmaToken.name}" is unchanged`);
-      }
+    if (!previousToken) {
+      // Token is new
+      changes.added.push(currentToken);
+    } else if (JSON.stringify(previousToken) !== JSON.stringify(currentToken)) {
+      // Token exists but has changed
+      changes.modified.push(currentToken);
     }
-  });
+  }
 
-  // Check for deleted tokens (exist in app but not in Figma)
-  appTokenMap.forEach((appToken, name) => {
-    if (!figmaTokenMap.has(name)) {
-      console.log(`Token "${name}" was deleted from Figma`);
-      changes.deleted.push(appToken);
+  // Find deleted tokens
+  for (const [name, previousToken] of previousMap) {
+    if (!currentMap.has(name)) {
+      changes.deleted.push(previousToken);
     }
-  });
+  }
 
-  console.log(`Changes summary: ${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted`);
-  
   return changes;
 }
 
-// Delete tokens from the app via API
-async function deleteTokensFromApp(tokens) {
-  try {
-    console.log('Deleting tokens from app...', tokens);
-    
-    const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ tokens: tokens.map(t => ({ id: t.id, name: t.name })) })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API delete error:', error);
-    throw new Error(`Failed to delete tokens from app: ${error.message}`);
+// Initialize snapshot on first variable extraction
+async function initializeFigmaVariablesSnapshot() {
+  if (!lastFigmaVariablesSnapshot) {
+    lastFigmaVariablesSnapshot = await extractFigmaVariables();
   }
 }
 
@@ -399,11 +383,18 @@ async function pushTokensToApp(tokens) {
   try {
     console.log('Pushing tokens to app...', tokens);
     
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add API key if available
+    if (userApiKey) {
+      headers['X-API-Key'] = userApiKey;
+    }
+    
     const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: JSON.stringify({ tokens })
     });
 
@@ -422,12 +413,20 @@ async function pushTokensToApp(tokens) {
 async function fetchTokensFromAPI() {
   try {
     console.log('Attempting to fetch from API...');
+    
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+
+    // Add API key if available
+    if (userApiKey) {
+      headers['X-API-Key'] = userApiKey;
+    }
+
     const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+      headers: headers
     });
     
     console.log('API Response status:', response.status);
