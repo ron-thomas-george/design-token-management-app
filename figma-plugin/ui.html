@@ -443,7 +443,7 @@
     <div class="section">
       <h2>Actions</h2>
       <div class="action-grid">
-        <button class="button-minimal" id="fetchBtn">
+        <button class="button-minimal" id="fetchBtn" disabled>
           <span class="button-icon">📥</span>
           <span class="button-text">Fetch Tokens</span>
         </button>
@@ -479,6 +479,7 @@
     let tokens = [];
     let currentChanges = null;
     let isSupabaseConfigured = false;
+    let isApiKeyValidated = false;
     
     // DOM elements
     const fetchBtn = document.getElementById('fetchBtn');
@@ -604,6 +605,10 @@
             } 
           }, '*');
           
+          // Enable buttons after successful validation
+          isApiKeyValidated = true;
+          enableActionButtons();
+          
           showAuthStatus('API key saved and validated successfully', 'success');
           apiKeyInput.value = ''; // Clear input for security
         } else if (response.status === 401) {
@@ -622,6 +627,10 @@
           type: 'clear-api-key'
         } 
       }, '*');
+      
+      // Disable buttons when API key is cleared
+      isApiKeyValidated = false;
+      disableActionButtons();
       
       showAuthStatus('API key cleared', 'success');
       apiKeyInput.value = '';
@@ -787,11 +796,29 @@
       }
     };
     
+    // Function to enable action buttons
+    function enableActionButtons() {
+      fetchBtn.disabled = false;
+      checkChangesBtn.disabled = false;
+      importBtn.disabled = false;
+      variablesBtn.disabled = false;
+      pushBtn.disabled = false;
+    }
+    
+    // Function to disable action buttons
+    function disableActionButtons() {
+      fetchBtn.disabled = true;
+      checkChangesBtn.disabled = true;
+      importBtn.disabled = true;
+      variablesBtn.disabled = true;
+      pushBtn.disabled = true;
+    }
+    
     // Initialize and check for existing Figma variables
     function initializePlugin() {
-      // Enable push button immediately since it works with existing Figma variables
-      pushBtn.disabled = false;
-      showStatus('Ready to connect', 'info');
+      // All buttons start disabled until API key is validated
+      disableActionButtons();
+      showStatus('Enter API key to enable actions', 'info');
     }
     
     // Initialize
