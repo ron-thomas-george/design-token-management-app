@@ -70,27 +70,63 @@ export default async function handler(req, res) {
     // If API key provided, validate it and get user-specific tokens
     if (apiKey) {
       console.log('Validating API key:', apiKey.substring(0, 10) + '...');
+      console.log('Query URL:', `${supabaseUrl}/rest/v1/user_api_keys?select=user_id&api_key=eq.${apiKey}&is_active=eq.true`);
       
-      // TEMPORARY: Skip API key validation and fetch all tokens
-      // This bypasses the validation issue while we investigate the root cause
-      console.log('TEMPORARY: Bypassing API key validation - fetching all tokens');
-      
-      const fallbackResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
+      // Try to validate API key using direct table lookup instead of RPC
+      const apiKeyResponse = await fetch(`${supabaseUrl}/rest/v1/user_api_keys?select=user_id&api_key=eq.${apiKey}&is_active=eq.true`, {
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json'
         }
       });
-      
-      if (fallbackResponse.ok) {
-        const allTokens = await fallbackResponse.json();
-        console.log(`Found ${allTokens.length} tokens (temporary bypass mode)`);
-        return res.status(200).json(allTokens);
-      } else {
-        console.error('Failed to fetch tokens in bypass mode');
-        return res.status(500).json({ error: 'Failed to fetch tokens' });
+
+      console.log('API key validation response:', apiKeyResponse.status, apiKeyResponse.statusText);
+
+      if (!apiKeyResponse.ok) {
+        const errorText = await apiKeyResponse.text();
+        console.error('API key validation failed:', apiKeyResponse.status, apiKeyResponse.statusText, errorText);
+        
+        // If user_api_keys table doesn't exist, fall back to fetching all tokens
+        if (apiKeyResponse.status === 404 || errorText.includes('relation "public.user_api_keys" does not exist')) {
+          console.log('user_api_keys table does not exist, falling back to all tokens');
+          const fallbackResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (fallbackResponse.ok) {
+            const allTokens = await fallbackResponse.json();
+            console.log(`Found ${allTokens.length} tokens (fallback mode)`);
+            return res.status(200).json(allTokens);
+          }
+        }
+        
+        // If API key not found but table exists, provide helpful error
+        if (apiKeyResponse.status === 200) {
+          console.log('API key table exists but key not found - need to generate API key first');
+          return res.status(401).json({ 
+            error: 'API key not found. Please generate an API key in the web app Settings page first.' 
+          });
+        }
+        
+        return res.status(401).json({ error: 'Invalid API key' });
       }
+
+      const apiKeyData = await apiKeyResponse.json();
+      console.log('API key data:', apiKeyData);
+      console.log('API key data length:', apiKeyData ? apiKeyData.length : 'null');
+      console.log('API key data type:', typeof apiKeyData);
+      
+      if (!apiKeyData || apiKeyData.length === 0) {
+        console.log('No matching API key found - returning 401');
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+
+      const userId = apiKeyData[0].user_id;
 
       // Update last_used_at timestamp
       await fetch(`${supabaseUrl}/rest/v1/user_api_keys?api_key=eq.${apiKey}`, {
