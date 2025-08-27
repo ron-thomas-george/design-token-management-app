@@ -25,6 +25,36 @@ export default async function handler(req, res) {
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 
+    // Debug endpoint - check all API keys in database
+    if (req.query.debug === 'keys') {
+      try {
+        const debugResponse = await fetch(`${supabaseUrl}/rest/v1/user_api_keys?select=*`, {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (debugResponse.ok) {
+          const allKeys = await debugResponse.json();
+          return res.status(200).json({ 
+            message: 'Debug info',
+            total_keys: allKeys.length,
+            keys: allKeys.map(k => ({
+              user_id: k.user_id,
+              key_preview: k.api_key ? k.api_key.substring(0, 10) + '...' : 'null',
+              is_active: k.is_active,
+              created_at: k.created_at
+            }))
+          });
+        }
+      } catch (error) {
+        console.error('Debug query failed:', error);
+        return res.status(500).json({ error: 'Debug query failed' });
+      }
+    }
+
     // Check for API key authentication
     const apiKey = req.headers['x-api-key'] || req.headers['X-API-Key'] || req.headers.authorization?.replace('Bearer ', '');
     
