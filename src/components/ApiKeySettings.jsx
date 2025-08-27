@@ -39,6 +39,8 @@ const ApiKeySettings = () => {
     setIsGenerating(true);
     try {
       console.log('Generating API key for user:', user.id);
+      console.log('User object:', user);
+      console.log('Supabase auth user:', await supabase.auth.getUser());
       
       // Generate API key client-side
       const randomBytes = new Uint8Array(32);
@@ -50,6 +52,11 @@ const ApiKeySettings = () => {
       const newApiKey = `frag_${base64Key}`;
 
       console.log('Generated API key:', newApiKey.substring(0, 10) + '...');
+      console.log('Insert payload:', {
+        user_id: user.id,
+        api_key: newApiKey,
+        name: newKeyName
+      });
 
       // Insert directly into user_api_keys table
       const { data, error } = await supabase
@@ -60,6 +67,8 @@ const ApiKeySettings = () => {
           name: newKeyName
         })
         .select();
+
+      console.log('Insert response - data:', data, 'error:', error);
 
       if (error) {
         console.error('Database insert error:', error);
