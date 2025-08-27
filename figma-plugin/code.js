@@ -445,8 +445,19 @@ async function fetchTokensFromAPI() {
     console.log('API Response data:', data);
     return data;
   } catch (error) {
-    console.error('API fetch error:', error);
-    throw new Error(`Failed to fetch from API: ${error.message}`);
+    console.error('API fetch error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    });
+    
+    // Check if it's a network error
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(`Network error: Unable to connect to API. Check internet connection.`);
+    }
+    
+    throw new Error(`Failed to fetch from API: ${error.message || 'Unknown error'}`);
   }
 }
 
