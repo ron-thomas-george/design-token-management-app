@@ -70,6 +70,7 @@ export default async function handler(req, res) {
     // If API key provided, validate it and get user-specific tokens
     if (apiKey) {
       console.log('Validating API key:', apiKey.substring(0, 10) + '...');
+      console.log('Query URL:', `${supabaseUrl}/rest/v1/user_api_keys?select=user_id&api_key=eq.${apiKey}&is_active=eq.true`);
       
       // Try to validate API key using direct table lookup instead of RPC
       const apiKeyResponse = await fetch(`${supabaseUrl}/rest/v1/user_api_keys?select=user_id&api_key=eq.${apiKey}&is_active=eq.true`, {
