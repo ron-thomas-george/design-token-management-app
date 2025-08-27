@@ -73,7 +73,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to generate API key for user
-CREATE OR REPLACE FUNCTION generate_user_api_key(key_name TEXT DEFAULT 'Figma Plugin Key')
+CREATE OR REPLACE FUNCTION create_api_key(p_name TEXT DEFAULT 'Figma Plugin Key')
 RETURNS TEXT AS $$
 DECLARE
     new_api_key TEXT;
@@ -92,7 +92,7 @@ BEGIN
     
     -- Insert the new API key
     INSERT INTO user_api_keys (user_id, api_key, name)
-    VALUES (current_user_id, new_api_key, key_name);
+    VALUES (current_user_id, new_api_key, p_name);
     
     RETURN new_api_key;
 END;
