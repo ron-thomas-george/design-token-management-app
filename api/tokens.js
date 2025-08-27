@@ -30,6 +30,20 @@ export default async function handler(req, res) {
 
     // Debug endpoint - check all API keys in database
     if (req.query.debug === 'keys') {
+      // First check if environment variables are properly loaded
+      if (!supabaseUrl || !supabaseKey || 
+          supabaseUrl === 'your_supabase_project_url_here' ||
+          supabaseKey === 'your_supabase_anon_key_here') {
+        return res.status(200).json({
+          message: 'Debug info - Environment variables not configured',
+          supabase_url_configured: !!supabaseUrl,
+          supabase_key_configured: !!supabaseKey,
+          url_value: supabaseUrl || 'undefined',
+          key_value: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'undefined',
+          total_keys: 0,
+          keys: []
+        });
+      }
       try {
         const debugResponse = await fetch(`${supabaseUrl}/rest/v1/user_api_keys?select=*`, {
           headers: {
