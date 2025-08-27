@@ -1,3 +1,52 @@
+-- Create user profiles table (extends Supabase auth.users)
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255),
+  avatar_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on user_profiles
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies for user_profiles if they exist
+DROP POLICY IF EXISTS "Users can view own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON user_profiles;
+
+-- RLS Policies for user_profiles
+CREATE POLICY "Users can view own profile" ON user_profiles
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON user_profiles
+    FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert own profile" ON user_profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Function to handle new user registration
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, full_name, avatar_url)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN NEW;
+END;
+$$ language 'plpgsql' SECURITY DEFINER;
+
+-- Trigger to automatically create user profile on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- User API Keys table for Figma plugin authentication
 CREATE TABLE IF NOT EXISTS user_api_keys (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -31,6 +80,11 @@ CREATE POLICY "Users can update their own API keys" ON user_api_keys
 CREATE POLICY "Users can delete their own API keys" ON user_api_keys
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Allow anon access for API key validation (needed for external API endpoints)
+DROP POLICY IF EXISTS "Allow anon to validate API keys" ON user_api_keys;
+CREATE POLICY "Allow anon to validate API keys" ON user_api_keys
+    FOR SELECT USING (true);
+
 -- Update design_tokens RLS policies to be user-specific
 DROP POLICY IF EXISTS "Allow all operations on design_tokens" ON design_tokens;
 DROP POLICY IF EXISTS "Users can view their own tokens" ON design_tokens;
@@ -50,6 +104,11 @@ CREATE POLICY "Users can update their own tokens" ON design_tokens
 
 CREATE POLICY "Users can delete their own tokens" ON design_tokens
     FOR DELETE USING (auth.uid() = user_id);
+
+-- Allow anon access to design_tokens for API key validation
+DROP POLICY IF EXISTS "Allow anon to read tokens for API validation" ON design_tokens;
+CREATE POLICY "Allow anon to read tokens for API validation" ON design_tokens
+    FOR SELECT USING (true);
 
 -- Function to validate API key and return user_id
 CREATE OR REPLACE FUNCTION validate_api_key(api_key_input TEXT)
@@ -72,31 +131,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to generate API key for user
-CREATE OR REPLACE FUNCTION create_api_key(p_name TEXT DEFAULT 'Figma Plugin Key')
-RETURNS TEXT AS $$
+-- Function to create token via API (bypasses RLS)
+CREATE OR REPLACE FUNCTION create_token_via_api(
+    p_user_id UUID,
+    p_name TEXT,
+    p_value TEXT,
+    p_type TEXT,
+    p_description TEXT DEFAULT NULL
+)
+RETURNS UUID AS $$
 DECLARE
-    new_api_key TEXT;
-    current_user_id UUID;
+    new_token_id UUID;
 BEGIN
-    current_user_id := auth.uid();
+    INSERT INTO design_tokens (user_id, name, value, type, description)
+    VALUES (p_user_id, p_name, p_value, p_type, p_description)
+    RETURNING id INTO new_token_id;
     
-    IF current_user_id IS NULL THEN
-        RAISE EXCEPTION 'User not authenticated';
-    END IF;
-    
-    -- Generate a secure random API key
-    new_api_key := 'frag_' || encode(gen_random_bytes(32), 'base64');
-    new_api_key := replace(new_api_key, '/', '_');
-    new_api_key := replace(new_api_key, '+', '-');
-    
-    -- Insert the new API key
-    INSERT INTO user_api_keys (user_id, api_key, name)
-    VALUES (current_user_id, new_api_key, p_name);
-    
-    RETURN new_api_key;
+    RETURN new_token_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function removed - using the version that accepts client-generated API key
 
 -- Function to get user tokens (for API access)
 CREATE OR REPLACE FUNCTION get_user_tokens(user_uuid UUID)
@@ -120,10 +175,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to create API key (bypasses RLS issues)
 CREATE OR REPLACE FUNCTION create_api_key(p_api_key TEXT, p_name TEXT)
-RETURNS UUID AS $$
+RETURNS TEXT AS $$
 DECLARE
     current_user_id UUID;
-    new_key_id UUID;
 BEGIN
     -- Get the current authenticated user
     current_user_id := auth.uid();
@@ -134,9 +188,8 @@ BEGIN
     
     -- Insert the new API key
     INSERT INTO user_api_keys (user_id, api_key, name)
-    VALUES (current_user_id, p_api_key, p_name)
-    RETURNING id INTO new_key_id;
+    VALUES (current_user_id, p_api_key, p_name);
     
-    RETURN new_key_id;
+    RETURN p_api_key;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

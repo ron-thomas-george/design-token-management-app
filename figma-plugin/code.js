@@ -338,9 +338,8 @@ function detectFigmaVariableChanges(previousSnapshot, currentTokens) {
     deleted: []
   };
 
-  // If no previous snapshot, all current tokens are new
+  // If no previous snapshot, don't treat everything as new - just return empty changes
   if (!previousSnapshot || previousSnapshot.length === 0) {
-    changes.added = [...currentTokens];
     return changes;
   }
 

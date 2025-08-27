@@ -50,13 +50,20 @@ export class SupabaseTokenService {
     }
 
     try {
+      // Get current user ID from Supabase auth
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+
       const { data, error } = await supabase
         .from(TOKENS_TABLE)
         .insert([{
           name: tokenData.name,
           value: tokenData.value,
           type: tokenData.type,
-          description: tokenData.description || null
+          description: tokenData.description || null,
+          user_id: user.id
         }])
         .select()
         .single()

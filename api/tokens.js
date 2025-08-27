@@ -219,22 +219,20 @@ export default async function handler(req, res) {
         console.log(`Found ${tokens.length} user-specific tokens for user ${userId}`);
       }
 
-      // If no user-specific tokens found, also fetch tokens with null user_id (legacy tokens)
-      if (tokens.length === 0) {
-        console.log('No user-specific tokens found, fetching tokens with null user_id');
-        const nullUserResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=is.null&order=created_at.desc`, {
-          headers: {
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (nullUserResponse.ok) {
-          const nullUserTokens = await nullUserResponse.json();
-          console.log(`Found ${nullUserTokens.length} tokens with null user_id`);
-          tokens = nullUserTokens;
+      // Always also fetch tokens with null user_id (legacy tokens) and combine them
+      console.log('Fetching tokens with null user_id (legacy tokens)');
+      const nullUserResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=is.null&order=created_at.desc`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
         }
+      });
+
+      if (nullUserResponse.ok) {
+        const nullUserTokens = await nullUserResponse.json();
+        console.log(`Found ${nullUserTokens.length} tokens with null user_id`);
+        tokens = [...tokens, ...nullUserTokens];
       }
 
       return res.status(200).json(tokens);
@@ -313,33 +311,34 @@ async function handlePostTokens(req, res) {
       }
     }
 
-    // Insert tokens into Supabase
+    // Require API key for POST operations
+    if (!apiKey || !userId) {
+      return res.status(401).json({ 
+        error: 'API key required for pushing tokens. Please generate an API key in the web app Settings.' 
+      });
+    }
+
+    // Insert tokens into Supabase using RPC function to bypass RLS
     const insertPromises = tokens.map(async (token) => {
-      const tokenData = {
-        name: token.name,
-        value: token.value,
-        type: token.type,
-        description: token.description || `${token.type} token from Figma`
-      };
-
-      // Add user_id if authenticated
-      if (userId) {
-        tokenData.user_id = userId;
-      }
-
-      const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens`, {
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/create_token_via_api`, {
         method: 'POST',
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(tokenData)
+        body: JSON.stringify({
+          p_user_id: userId,
+          p_name: token.name,
+          p_value: token.value,
+          p_type: token.type,
+          p_description: token.description || `${token.type} token from Figma`
+        })
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to insert token ${token.name}: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to insert token ${token.name}: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       return response;
