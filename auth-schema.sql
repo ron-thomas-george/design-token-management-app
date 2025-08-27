@@ -117,3 +117,26 @@ BEGIN
     ORDER BY dt.created_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to create API key (bypasses RLS issues)
+CREATE OR REPLACE FUNCTION create_api_key(p_api_key TEXT, p_name TEXT)
+RETURNS UUID AS $$
+DECLARE
+    current_user_id UUID;
+    new_key_id UUID;
+BEGIN
+    -- Get the current authenticated user
+    current_user_id := auth.uid();
+    
+    IF current_user_id IS NULL THEN
+        RAISE EXCEPTION 'User not authenticated';
+    END IF;
+    
+    -- Insert the new API key
+    INSERT INTO user_api_keys (user_id, api_key, name)
+    VALUES (current_user_id, p_api_key, p_name)
+    RETURNING id INTO new_key_id;
+    
+    RETURN new_key_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

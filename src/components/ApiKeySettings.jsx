@@ -58,15 +58,11 @@ const ApiKeySettings = () => {
         name: newKeyName
       });
 
-      // Insert directly into user_api_keys table
-      const { data, error } = await supabase
-        .from('user_api_keys')
-        .insert({
-          user_id: user.id,
-          api_key: newApiKey,
-          name: newKeyName
-        })
-        .select();
+      // Insert directly into user_api_keys table using RPC function to bypass RLS
+      const { data, error } = await supabase.rpc('create_api_key', {
+        p_api_key: newApiKey,
+        p_name: newKeyName
+      });
 
       console.log('Insert response - data:', data, 'error:', error);
 
