@@ -31,10 +31,15 @@ const ApiKeySettings = () => {
   };
 
   const generateApiKey = async () => {
-    if (!user) return;
+    if (!user) {
+      alert('Please sign in to generate an API key');
+      return;
+    }
     
     setIsGenerating(true);
     try {
+      console.log('Generating API key for user:', user.id);
+      
       // Generate API key client-side
       const randomBytes = new Uint8Array(32);
       crypto.getRandomValues(randomBytes);
@@ -44,17 +49,24 @@ const ApiKeySettings = () => {
         .replace(/=/g, '');
       const newApiKey = `frag_${base64Key}`;
 
+      console.log('Generated API key:', newApiKey.substring(0, 10) + '...');
+
       // Insert directly into user_api_keys table
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_api_keys')
         .insert({
           user_id: user.id,
           api_key: newApiKey,
           name: newKeyName
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw error;
+      }
 
+      console.log('API key inserted successfully:', data);
       setShowNewKey(newApiKey);
       setNewKeyName('Figma Plugin Key');
       await fetchApiKeys();
