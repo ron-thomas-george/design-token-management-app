@@ -3,13 +3,15 @@ import { Toaster } from 'react-hot-toast'
 import TokenManagement from './components/TokenManagement'
 import Integrations from './components/Integrations'
 import ApiKeySettings from './components/ApiKeySettings'
+import { AuthProvider } from './contexts/AuthContext'
 import { Settings, Palette } from 'lucide-react'
 
 function App() {
   const [currentView, setCurrentView] = useState('tokens')
 
   return (
-    <div className="min-h-screen bg-[#0f1419]">
+    <AuthProvider>
+      <div className="min-h-screen bg-[#0f1419]">
       {/* Header */}
       <header className="bg-[#0f1419] border-b border-[#2d3748]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,7 +68,8 @@ function App() {
           {currentView === 'settings' && <ApiKeySettings />}
         </div>
       </main>
-    </div>
+      </div>
+    </AuthProvider>
   )
 }
 

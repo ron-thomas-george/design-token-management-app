@@ -12,6 +12,12 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
 -- Enable RLS on user_api_keys
 ALTER TABLE user_api_keys ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies for user_api_keys if they exist
+DROP POLICY IF EXISTS "Users can view their own API keys" ON user_api_keys;
+DROP POLICY IF EXISTS "Users can insert their own API keys" ON user_api_keys;
+DROP POLICY IF EXISTS "Users can update their own API keys" ON user_api_keys;
+DROP POLICY IF EXISTS "Users can delete their own API keys" ON user_api_keys;
+
 -- RLS policies for user_api_keys
 CREATE POLICY "Users can view their own API keys" ON user_api_keys
     FOR SELECT USING (auth.uid() = user_id);
@@ -27,6 +33,10 @@ CREATE POLICY "Users can delete their own API keys" ON user_api_keys
 
 -- Update design_tokens RLS policies to be user-specific
 DROP POLICY IF EXISTS "Allow all operations on design_tokens" ON design_tokens;
+DROP POLICY IF EXISTS "Users can view their own tokens" ON design_tokens;
+DROP POLICY IF EXISTS "Users can insert their own tokens" ON design_tokens;
+DROP POLICY IF EXISTS "Users can update their own tokens" ON design_tokens;
+DROP POLICY IF EXISTS "Users can delete their own tokens" ON design_tokens;
 
 -- Create user-specific policies for design_tokens
 CREATE POLICY "Users can view their own tokens" ON design_tokens

@@ -35,13 +35,27 @@ const ApiKeySettings = () => {
     
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.rpc('generate_user_api_key', {
-        key_name: newKeyName
-      });
+      // Generate API key client-side
+      const randomBytes = new Uint8Array(32);
+      crypto.getRandomValues(randomBytes);
+      const base64Key = btoa(String.fromCharCode(...randomBytes))
+        .replace(/\//g, '_')
+        .replace(/\+/g, '-')
+        .replace(/=/g, '');
+      const newApiKey = `frag_${base64Key}`;
+
+      // Insert directly into user_api_keys table
+      const { error } = await supabase
+        .from('user_api_keys')
+        .insert({
+          user_id: user.id,
+          api_key: newApiKey,
+          name: newKeyName
+        });
 
       if (error) throw error;
 
-      setShowNewKey(data);
+      setShowNewKey(newApiKey);
       setNewKeyName('Figma Plugin Key');
       await fetchApiKeys();
     } catch (error) {
