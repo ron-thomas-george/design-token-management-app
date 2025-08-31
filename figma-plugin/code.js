@@ -172,7 +172,16 @@ figma.ui.onmessage = async (msg) => {
       const tokensToSync = [...changes.added, ...changes.modified];
       
       if (tokensToSync.length > 0) {
-        await pushTokensToApp(tokensToSync);
+        const response = await pushTokensToApp(tokensToSync);
+        
+        // If we have tokens in the response, mark them as changed in the web app
+        if (response && response.tokens && response.tokens.length > 0) {
+          // Send message to web app to mark these tokens as changed
+          figma.ui.postMessage({
+            type: 'mark-tokens-changed',
+            tokenIds: response.tokens.map(token => token.id)
+          });
+        }
       }
       
       // Handle deletions if needed (could be implemented later)
@@ -184,7 +193,8 @@ figma.ui.onmessage = async (msg) => {
       const changeCount = changes.added.length + changes.modified.length + changes.deleted.length;
       figma.ui.postMessage({
         type: 'success',
-        message: `Successfully pushed ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`
+        message: `Successfully pushed ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`,
+        tokenCount: tokensToSync.length
       });
 
     } catch (error) {
@@ -338,8 +348,9 @@ function detectFigmaVariableChanges(previousSnapshot, currentTokens) {
     deleted: []
   };
 
-  // If no previous snapshot, don't treat everything as new - just return empty changes
+  // If no previous snapshot, all current tokens are new
   if (!previousSnapshot || previousSnapshot.length === 0) {
+    changes.added = [...currentTokens];
     return changes;
   }
 

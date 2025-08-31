@@ -105,10 +105,30 @@ CREATE POLICY "Users can update their own tokens" ON design_tokens
 CREATE POLICY "Users can delete their own tokens" ON design_tokens
     FOR DELETE USING (auth.uid() = user_id);
 
--- Allow anon access to design_tokens for API key validation
+-- Remove overly permissive anon policy - causes cross-user visibility
 DROP POLICY IF EXISTS "Allow anon to read tokens for API validation" ON design_tokens;
-CREATE POLICY "Allow anon to read tokens for API validation" ON design_tokens
-    FOR SELECT USING (true);
+
+-- Function to get user tokens (bypasses RLS for API endpoints)  
+CREATE OR REPLACE FUNCTION get_user_tokens_v2(target_user_id UUID)
+RETURNS TABLE(
+    id UUID,
+    name TEXT,
+    value TEXT,
+    type TEXT,
+    description TEXT,
+    user_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE
+) 
+SECURITY DEFINER AS $$
+BEGIN
+    RETURN QUERY
+    SELECT dt.id, dt.name, dt.value, dt.type, dt.description, dt.user_id, dt.created_at, dt.updated_at
+    FROM design_tokens dt
+    WHERE dt.user_id = target_user_id
+    ORDER BY dt.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Function to validate API key and return user_id
 CREATE OR REPLACE FUNCTION validate_api_key(api_key_input TEXT)
@@ -128,26 +148,6 @@ BEGIN
     END IF;
     
     RETURN user_uuid;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to create token via API (bypasses RLS)
-CREATE OR REPLACE FUNCTION create_token_via_api(
-    p_user_id UUID,
-    p_name TEXT,
-    p_value TEXT,
-    p_type TEXT,
-    p_description TEXT DEFAULT NULL
-)
-RETURNS UUID AS $$
-DECLARE
-    new_token_id UUID;
-BEGIN
-    INSERT INTO design_tokens (user_id, name, value, type, description)
-    VALUES (p_user_id, p_name, p_value, p_type, p_description)
-    RETURNING id INTO new_token_id;
-    
-    RETURN new_token_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

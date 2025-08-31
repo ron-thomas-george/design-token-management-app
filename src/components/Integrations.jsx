@@ -1,8 +1,27 @@
 import React, { useState, useEffect } from 'react'
 import { Github, Slack, Check, X, Settings, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuth } from '../contexts/AuthContext'
 
 const Integrations = () => {
+  const { user } = useAuth()
+  
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="bg-[#0f1419] p-8 rounded-lg border border-[#2d3748] max-w-md text-center">
+          <h2 className="text-xl font-bold text-white mb-4">Sign In Required</h2>
+          <p className="text-gray-400 mb-6">
+            Please sign in to view and manage your integrations.
+          </p>
+          <p className="text-sm text-gray-500">
+            Click the "Sign In" button in the top right corner to get started.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
   const [githubConfig, setGithubConfig] = useState({
     token: '',
     owner: '',

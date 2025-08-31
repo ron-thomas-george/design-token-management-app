@@ -1,11 +1,12 @@
 {
   "name": "Fragmento Sync",
-  "id": "design-token-sync",
+  "id": "1543506219562939719",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
   "capabilities": [],
   "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
   "editorType": [
     "figma"
   ],

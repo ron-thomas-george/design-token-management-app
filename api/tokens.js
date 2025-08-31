@@ -204,13 +204,15 @@ export default async function handler(req, res) {
         body: JSON.stringify({ last_used_at: new Date().toISOString() })
       });
 
-      // First try user-specific tokens, then fall back to tokens with null user_id
-      let response = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=eq.${userId}&order=created_at.desc`, {
+      // Use RPC function to get user tokens with proper authentication context
+      let response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_user_tokens_v2`, {
+        method: 'POST',
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ target_user_id: userId })
       });
 
       let tokens = [];
@@ -219,20 +221,22 @@ export default async function handler(req, res) {
         console.log(`Found ${tokens.length} user-specific tokens for user ${userId}`);
       }
 
-      // Always also fetch tokens with null user_id (legacy tokens) and combine them
-      console.log('Fetching tokens with null user_id (legacy tokens)');
-      const nullUserResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=is.null&order=created_at.desc`, {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // If no user-specific tokens found, also fetch tokens with null user_id (legacy tokens)
+      if (tokens.length === 0) {
+        console.log('No user-specific tokens found, fetching tokens with null user_id');
+        const nullUserResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens?select=*&user_id=is.null&order=created_at.desc`, {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (nullUserResponse.ok) {
-        const nullUserTokens = await nullUserResponse.json();
-        console.log(`Found ${nullUserTokens.length} tokens with null user_id`);
-        tokens = [...tokens, ...nullUserTokens];
+        if (nullUserResponse.ok) {
+          const nullUserTokens = await nullUserResponse.json();
+          console.log(`Found ${nullUserTokens.length} tokens with null user_id`);
+          tokens = nullUserTokens;
+        }
       }
 
       return res.status(200).json(tokens);
@@ -311,44 +315,45 @@ async function handlePostTokens(req, res) {
       }
     }
 
-    // Require API key for POST operations
-    if (!apiKey || !userId) {
-      return res.status(401).json({ 
-        error: 'API key required for pushing tokens. Please generate an API key in the web app Settings.' 
-      });
-    }
-
-    // Insert tokens into Supabase using RPC function to bypass RLS
+    // Insert tokens into Supabase
     const insertPromises = tokens.map(async (token) => {
-      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/create_token_via_api`, {
+      const tokenData = {
+        name: token.name,
+        value: token.value,
+        type: token.type,
+        description: token.description || `${token.type} token from Figma`
+      };
+
+      // Add user_id if authenticated
+      if (userId) {
+        tokenData.user_id = userId;
+      }
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens`, {
         method: 'POST',
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation' // Changed from minimal to return inserted data
         },
-        body: JSON.stringify({
-          p_user_id: userId,
-          p_name: token.name,
-          p_value: token.value,
-          p_type: token.type,
-          p_description: token.description || `${token.type} token from Figma`
-        })
+        body: JSON.stringify(tokenData)
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to insert token ${token.name}: ${response.status} ${response.statusText} - ${errorText}`);
+        throw new Error(`Failed to insert token ${token.name}: ${response.status} ${response.statusText}`);
       }
 
-      return response;
+      const data = await response.json();
+      return data[0]; // Return the inserted token with its ID
     });
 
-    await Promise.all(insertPromises);
+    const insertedTokens = await Promise.all(insertPromises);
 
     res.status(200).json({ 
-      message: `Successfully pushed ${tokens.length} tokens to database`,
-      count: tokens.length
+      message: `Successfully pushed ${insertedTokens.length} tokens to database`,
+      count: insertedTokens.length,
+      tokens: insertedTokens // Return the inserted tokens with their IDs
     });
 
   } catch (error) {

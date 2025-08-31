@@ -571,11 +571,37 @@
       showStatus('Reading Figma variables...', 'info');
       pushBtn.disabled = true;
       
+      // Send message to plugin to push variables
       parent.postMessage({ 
         pluginMessage: { 
           type: 'push-variables-to-app'
         } 
       }, '*');
+      
+      // Listen for success message from plugin
+      function handlePluginMessage(event) {
+        if (event.data.pluginMessage && 
+            event.data.pluginMessage.type === 'success' && 
+            event.data.pluginMessage.tokenCount > 0) {
+          
+          // Forward the success message to the parent window
+          window.parent.postMessage({
+            type: 'mark-tokens-changed',
+            tokenIds: event.data.pluginMessage.tokenIds || []
+          }, '*');
+          
+          // Clean up the event listener
+          window.removeEventListener('message', handlePluginMessage);
+        }
+      }
+      
+      // Add event listener for plugin messages
+      window.addEventListener('message', handlePluginMessage);
+      
+      // Clean up the event listener after 10 seconds if no response
+      setTimeout(() => {
+        window.removeEventListener('message', handlePluginMessage);
+      }, 10000);
     }
     
     // API Key management
