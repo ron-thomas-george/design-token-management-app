@@ -256,22 +256,60 @@ export default async function handler(req, res) {
 // Validate API key and return user ID
 async function validateApiKey(supabaseUrl, supabaseKey, apiKey) {
   try {
+    console.log('Validating API key...');
+    
+    // Check if Supabase URL and key are valid
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Supabase URL or key is missing');
+      return null;
+    }
+
+    console.log(`Calling validate_api_key for key: ${apiKey.substring(0, 8)}...`);
+    
     const response = await fetch(`${supabaseUrl}/rest/v1/rpc/validate_api_key`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({ api_key_input: apiKey })
     });
 
+    const responseText = await response.text();
+    console.log(`API Key validation response: ${response.status} ${response.statusText}`, responseText);
+
     if (!response.ok) {
+      console.error(`API Key validation failed: ${response.status} ${response.statusText}`, responseText);
       return null;
     }
 
-    const userId = await response.text();
-    return userId && userId !== 'null' ? userId.replace(/"/g, '') : null;
+    try {
+      // Try to parse as JSON first
+      const data = JSON.parse(responseText);
+      const userId = data?.user_id || data;
+      
+      if (!userId) {
+        console.error('No user ID returned from validate_api_key');
+        return null;
+      }
+      
+      console.log(`API Key validated for user: ${userId}`);
+      return String(userId).replace(/"/g, '');
+    } catch (parseError) {
+      // If JSON parse fails, try to get user ID from text response
+      console.log('Parsing as text response');
+      const userId = responseText.replace(/"/g, '').trim();
+      
+      if (!userId || userId === 'null' || userId === 'undefined') {
+        console.error('Invalid user ID in response:', responseText);
+        return null;
+      }
+      
+      console.log(`API Key validated (text response) for user: ${userId}`);
+      return userId;
+    }
   } catch (error) {
     console.error('Error validating API key:', error);
     return null;
@@ -315,45 +353,122 @@ async function handlePostTokens(req, res) {
       }
     }
 
+    console.log(`Processing ${tokens.length} tokens for user:`, userId || 'unauthenticated');
+    
     // Insert tokens into Supabase
     const insertPromises = tokens.map(async (token) => {
-      const tokenData = {
-        name: token.name,
-        value: token.value,
-        type: token.type,
-        description: token.description || `${token.type} token from Figma`
-      };
+      try {
+        console.log('Processing token:', token.name);
+        
+        const tokenData = {
+          name: token.name,
+          value: token.value,
+          type: token.type,
+          description: token.description || `${token.type} token from Figma`,
+          source: 'figma',
+          updated_at: new Date().toISOString()
+        };
 
-      // Add user_id if authenticated
-      if (userId) {
-        tokenData.user_id = userId;
+        // Add user_id if authenticated
+        if (userId) {
+          tokenData.user_id = userId;
+        }
+
+        console.log('Token data prepared:', JSON.stringify(tokenData, null, 2));
+        
+        // First, try to update if exists
+        const updateResponse = await fetch(
+          `${supabaseUrl}/rest/v1/design_tokens?name=eq.${encodeURIComponent(token.name)}${userId ? `&user_id=eq.${userId}` : ''}`, 
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(tokenData)
+          }
+        );
+
+        let response;
+        let responseData;
+        
+        if (updateResponse.status === 200 || updateResponse.status === 201) {
+          // Update successful
+          response = updateResponse;
+          responseData = await updateResponse.json();
+          console.log(`Token ${token.name} updated successfully`);
+        } else {
+          // If update failed, try insert
+          console.log(`Update failed (${updateResponse.status}), trying insert for token:`, token.name);
+          
+          const insertResponse = await fetch(`${supabaseUrl}/rest/v1/design_tokens`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(tokenData)
+          });
+          
+          response = insertResponse;
+          if (!insertResponse.ok) {
+            const errorText = await insertResponse.text();
+            throw new Error(`Failed to insert token ${token.name}: ${insertResponse.status} ${insertResponse.statusText} - ${errorText}`);
+          }
+          responseData = await insertResponse.json();
+          console.log(`Token ${token.name} inserted successfully`);
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to process token ${token.name}: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        return Array.isArray(responseData) ? responseData[0] : responseData;
+      } catch (error) {
+        console.error(`Error processing token ${token?.name || 'unknown'}:`, error);
+        throw error; // Re-throw to be caught by Promise.all
       }
-
-      const response = await fetch(`${supabaseUrl}/rest/v1/design_tokens`, {
-        method: 'POST',
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation' // Changed from minimal to return inserted data
-        },
-        body: JSON.stringify(tokenData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to insert token ${token.name}: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data[0]; // Return the inserted token with its ID
     });
 
-    const insertedTokens = await Promise.all(insertPromises);
+    const results = await Promise.allSettled(insertPromises);
+    
+    // Process results
+    const insertedTokens = [];
+    const errors = [];
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        insertedTokens.push(result.value);
+      } else {
+        console.error(`Error processing token at index ${index}:`, result.reason);
+        errors.push({
+          index,
+          name: tokens[index]?.name || 'unknown',
+          error: result.reason.message || 'Unknown error'
+        });
+      }
+    });
+
+    if (errors.length > 0) {
+      console.error(`Failed to process ${errors.length} tokens:`, errors);
+      return res.status(207).json({ 
+        message: `Processed with ${errors.length} errors`,
+        successCount: insertedTokens.length,
+        errorCount: errors.length,
+        errors: errors,
+        tokens: insertedTokens
+      });
+    }
 
     res.status(200).json({ 
-      message: `Successfully pushed ${insertedTokens.length} tokens to database`,
+      message: `Successfully processed ${insertedTokens.length} tokens`,
       count: insertedTokens.length,
-      tokens: insertedTokens // Return the inserted tokens with their IDs
+      tokens: insertedTokens
     });
 
   } catch (error) {
