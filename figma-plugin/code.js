@@ -273,8 +273,8 @@ async function fetchTokensFromSupabase() {
 async function extractFigmaVariables() {
   const figmaTokens = [];
   
-  // Get all local variable collections
-  const collections = figma.variables.getLocalVariableCollections();
+  // Get all local variable collections asynchronously
+  const collections = await figma.variables.getLocalVariableCollectionsAsync();
   
   // Filter for Fragmento collections
   const fragmentoCollections = collections.filter(collection => 
@@ -285,10 +285,16 @@ async function extractFigmaVariables() {
     // Extract token type from collection name (e.g., "Fragmento - Colors" -> "colors")
     const type = collection.name.replace('Fragmento - ', '').toLowerCase();
     
-    // Get all variables in this collection
-    const variables = collection.variableIds.map(id => 
-      figma.variables.getVariableById(id)
-    ).filter(variable => variable !== null);
+    // Get all variables in this collection asynchronously
+    const variables = [];
+    for (const id of collection.variableIds) {
+      try {
+        const variable = await figma.variables.getVariableByIdAsync(id);
+        if (variable) variables.push(variable);
+      } catch (error) {
+        console.warn(`Failed to get variable with ID ${id}:`, error);
+      }
+    }
     
     for (const variable of variables) {
       // Get the default mode value
@@ -777,11 +783,19 @@ async function createTokenVariables(tokens) {
     }, {});
 
     // Get all existing Fragmento variables for cleanup
-    const existingVariables = figma.variables.getLocalVariables()
-      .filter(v => {
-        const collection = figma.variables.getVariableCollectionById(v.variableCollectionId);
-        return collection && collection.name.startsWith('Fragmento - ');
-      });
+    const allVariables = await figma.variables.getLocalVariablesAsync();
+    const existingVariables = [];
+    
+    for (const variable of allVariables) {
+      try {
+        const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+        if (collection && collection.name.startsWith('Fragmento - ')) {
+          existingVariables.push(variable);
+        }
+      } catch (error) {
+        console.warn(`Failed to get collection for variable ${variable.name}:`, error);
+      }
+    }
 
     // Create a set of current token names for quick lookup
     const currentTokenNames = new Set(tokens.map(token => token.name));
@@ -801,12 +815,12 @@ async function createTokenVariables(tokens) {
       // Create collection for this token type
       const collectionName = `Fragmento - ${type.charAt(0).toUpperCase() + type.slice(1)}`;
       
-      // Check if collection already exists
-      let collection = figma.variables.getLocalVariableCollections()
-        .find(c => c.name === collectionName);
+      // Check if collection already exists asynchronously
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      let collection = collections.find(c => c.name === collectionName);
       
       if (!collection) {
-        collection = figma.variables.createVariableCollection(collectionName);
+        collection = await figma.variables.createVariableCollectionAsync(collectionName);
       }
       
       collections[type] = collection;
@@ -828,9 +842,11 @@ async function createTokenVariables(tokens) {
 // Create a Figma variable for a specific token
 async function createVariableForToken(token, collection) {
   try {
-    // Check if variable already exists
-    const existingVariable = figma.variables.getLocalVariables()
-      .find(v => v.name === token.name && v.variableCollectionId === collection.id);
+    // Check if variable already exists asynchronously
+    const localVariables = await figma.variables.getLocalVariablesAsync();
+    const existingVariable = localVariables.find(
+      v => v.name === token.name && v.variableCollectionId === collection.id
+    );
     
     let variable;
     
@@ -839,7 +855,7 @@ async function createVariableForToken(token, collection) {
     } else {
       // Determine variable type based on token type
       const variableType = getVariableTypeForToken(token);
-      variable = figma.variables.createVariable(token.name, collection, variableType);
+      variable = await figma.variables.createVariableAsync(token.name, collection.id, variableType);
     }
     
     // Set variable description
@@ -850,8 +866,7 @@ async function createVariableForToken(token, collection) {
     // Set variable value based on token type
     const value = parseTokenValueForVariable(token);
     const defaultMode = collection.modes[0];
-    
-    variable.setValueForMode(defaultMode.modeId, value);
+    await variable.setValueForModeAsync(defaultMode.modeId, value);
     
     console.log(`Created/updated variable: ${token.name} = ${token.value}`);
     
