@@ -15,9 +15,17 @@ export class SupabaseTokenService {
     }
 
     try {
+      // Check if user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.error('Authentication error:', authError?.message || 'No user found')
+        return { success: false, error: 'Not authenticated' }
+      }
+
       const { data, error } = await supabase
         .from(TOKENS_TABLE)
         .select('*')
+        .eq('user_id', user.id)  // Only get tokens for the current user
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -34,14 +42,8 @@ export class SupabaseTokenService {
       // Fallback to localStorage
       try {
         const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
-        const newToken = {
-          ...tokenData,
-          id: Date.now().toString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-        tokens.push(newToken)
-        localStorage.setItem('tokens', JSON.stringify(tokens))
+        const newToken = { id: Date.now().toString(), ...tokenData }
+        localStorage.setItem('tokens', JSON.stringify([...tokens, newToken]))
         return { success: true, data: newToken }
       } catch (error) {
         console.error('Error saving to localStorage:', error)
@@ -50,21 +52,16 @@ export class SupabaseTokenService {
     }
 
     try {
-      // Get current user ID from Supabase auth
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('User not authenticated')
+      // Check if user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.error('Authentication error:', authError?.message || 'No user found')
+        return { success: false, error: 'Not authenticated' }
       }
 
       const { data, error } = await supabase
         .from(TOKENS_TABLE)
-        .insert([{
-          name: tokenData.name,
-          value: tokenData.value,
-          type: tokenData.type,
-          description: tokenData.description || null,
-          user_id: user.id
-        }])
+        .insert([{ ...tokenData, user_id: user.id }])
         .select()
         .single()
 
@@ -76,113 +73,168 @@ export class SupabaseTokenService {
     }
   }
 
-  // Update an existing token
-  async updateToken(tokenId, tokenData) {
-    if (!isSupabaseConfigured || !supabase) {
-      // Fallback to localStorage
+  // Add other methods (update, delete) with similar authentication checks
+
+    // Update an existing token
+    async updateToken(tokenId, tokenData) {
+      if (!isSupabaseConfigured || !supabase) {
+        // Fallback to localStorage
+        try {
+          const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
+          const tokenIndex = tokens.findIndex(t => t.id === tokenId)
+          if (tokenIndex === -1) {
+            return { success: false, error: 'Token not found' }
+          }
+          tokens[tokenIndex] = { ...tokens[tokenIndex], ...tokenData, updated_at: new Date().toISOString() }
+          localStorage.setItem('tokens', JSON.stringify(tokens))
+          return { success: true, data: tokens[tokenIndex] }
+        } catch (error) {
+          console.error('Error updating token in localStorage:', error)
+          return { success: false, error: error.message }
+        }
+      }
+  
       try {
-        const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
-        const tokenIndex = tokens.findIndex(t => t.id === tokenId)
-        if (tokenIndex === -1) {
-          throw new Error('Token not found')
+        // Check if user is authenticated
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+          console.error('Authentication error:', authError?.message || 'No user found')
+          return { success: false, error: 'Not authenticated' }
         }
-        const updatedToken = {
-          ...tokens[tokenIndex],
-          ...tokenData,
-          updated_at: new Date().toISOString()
-        }
-        tokens[tokenIndex] = updatedToken
-        localStorage.setItem('tokens', JSON.stringify(tokens))
-        return { success: true, data: updatedToken }
+  
+        const { data, error } = await supabase
+          .from(TOKENS_TABLE)
+          .update({
+            ...tokenData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', tokenId)
+          .eq('user_id', user.id)  // Ensure user owns the token
+          .select()
+          .single()
+  
+        if (error) throw error
+        return { success: true, data }
       } catch (error) {
-        console.error('Error updating localStorage:', error)
+        console.error('Error updating token:', error)
         return { success: false, error: error.message }
       }
     }
-
-    try {
-      const { data, error } = await supabase
-        .from(TOKENS_TABLE)
-        .update({
-          name: tokenData.name,
-          value: tokenData.value,
-          type: tokenData.type,
-          description: tokenData.description || null
-        })
-        .eq('id', tokenId)
-        .select()
-        .single()
-
-      if (error) throw error
-      return { success: true, data }
-    } catch (error) {
-      console.error('Error updating token:', error)
-      return { success: false, error: error.message }
-    }
-  }
-
-  // Delete a token
-  async deleteToken(tokenId) {
-    if (!isSupabaseConfigured || !supabase) {
-      // Fallback to localStorage
+  
+    // Delete a token
+    async deleteToken(tokenId) {
+      if (!isSupabaseConfigured || !supabase) {
+        // Fallback to localStorage
+        try {
+          const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
+          const filteredTokens = tokens.filter(t => t.id !== tokenId)
+          localStorage.setItem('tokens', JSON.stringify(filteredTokens))
+          return { success: true }
+        } catch (error) {
+          console.error('Error deleting token from localStorage:', error)
+          return { success: false, error: error.message }
+        }
+      }
+  
       try {
-        const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
-        const filteredTokens = tokens.filter(t => t.id !== tokenId)
-        localStorage.setItem('tokens', JSON.stringify(filteredTokens))
+        // Check if user is authenticated
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+          console.error('Authentication error:', authError?.message || 'No user found')
+          return { success: false, error: 'Not authenticated' }
+        }
+  
+        const { error } = await supabase
+          .from(TOKENS_TABLE)
+          .delete()
+          .eq('id', tokenId)
+          .eq('user_id', user.id)  // Ensure user owns the token
+  
+        if (error) throw error
         return { success: true }
       } catch (error) {
-        console.error('Error deleting from localStorage:', error)
+        console.error('Error deleting token:', error)
         return { success: false, error: error.message }
       }
     }
 
-    try {
-      const { error } = await supabase
-        .from(TOKENS_TABLE)
-        .delete()
-        .eq('id', tokenId)
-
-      if (error) throw error
-      return { success: true }
-    } catch (error) {
-      console.error('Error deleting token:', error)
-      return { success: false, error: error.message }
-    }
-  }
-
   // Get tokens by type
-  async getTokensByType(type) {
+async getTokensByType(type) {
+  if (!isSupabaseConfigured || !supabase) {
+    // Fallback to localStorage
     try {
-      const { data, error } = await supabase
-        .from(TOKENS_TABLE)
-        .select('*')
-        .eq('type', type)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      return { success: true, data: data || [] }
+      const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
+      const filteredTokens = tokens.filter(t => t.type === type)
+      return { success: true, data: filteredTokens }
     } catch (error) {
-      console.error('Error fetching tokens by type:', error)
-      return { success: false, error: error.message }
+      console.error('Error reading from localStorage:', error)
+      return { success: true, data: [] }
     }
   }
+
+  try {
+    // Check if user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      console.error('Authentication error:', authError?.message || 'No user found')
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const { data, error } = await supabase
+      .from(TOKENS_TABLE)
+      .select('*')
+      .eq('type', type)
+      .eq('user_id', user.id)  // Only get tokens for the current user
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { success: true, data: data || [] }
+  } catch (error) {
+    console.error(`Error fetching tokens of type ${type}:`, error)
+    return { success: false, error: error.message }
+  }
+}
 
   // Search tokens by name
-  async searchTokens(searchTerm) {
+async searchTokens(searchTerm) {
+  if (!isSupabaseConfigured || !supabase) {
+    // Fallback to localStorage
     try {
-      const { data, error } = await supabase
-        .from(TOKENS_TABLE)
-        .select('*')
-        .ilike('name', `%${searchTerm}%`)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      return { success: true, data: data || [] }
+      const tokens = JSON.parse(localStorage.getItem('tokens') || '[]')
+      const searchLower = searchTerm.toLowerCase()
+      const filteredTokens = tokens.filter(t => 
+        t.name.toLowerCase().includes(searchLower) ||
+        (t.description && t.description.toLowerCase().includes(searchLower))
+      )
+      return { success: true, data: filteredTokens }
     } catch (error) {
-      console.error('Error searching tokens:', error)
-      return { success: false, error: error.message }
+      console.error('Error searching tokens in localStorage:', error)
+      return { success: true, data: [] }
     }
   }
+
+  try {
+    // Check if user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      console.error('Authentication error:', authError?.message || 'No user found')
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    const { data, error } = await supabase
+      .from(TOKENS_TABLE)
+      .select('*')
+      .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+      .eq('user_id', user.id)  // Only search tokens for the current user
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { success: true, data: data || [] }
+  } catch (error) {
+    console.error('Error searching tokens:', error)
+    return { success: false, error: error.message }
+  }
+}
 
   // Get token statistics
   async getTokenStats() {

@@ -105,6 +105,19 @@ CREATE POLICY "Users can update their own tokens" ON design_tokens
 CREATE POLICY "Users can delete their own tokens" ON design_tokens
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Drop existing policy if it exists
+DROP POLICY IF EXISTS "Allow service role to bypass RLS for upsert" ON design_tokens;
+
+-- Allow service role to bypass RLS for the upsert function
+CREATE POLICY "Allow service role to bypass RLS for upsert" ON design_tokens
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- Grant necessary permissions to the function
+GRANT EXECUTE ON FUNCTION upsert_design_token(TEXT, TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
+
+-- Allow the function to be executed by authenticated users
+ALTER FUNCTION upsert_design_token(TEXT, TEXT, TEXT, TEXT, UUID) SECURITY DEFINER SET search_path = public;
+
 -- Remove overly permissive anon policy - causes cross-user visibility
 DROP POLICY IF EXISTS "Allow anon to read tokens for API validation" ON design_tokens;
 
@@ -135,16 +148,33 @@ CREATE OR REPLACE FUNCTION validate_api_key(api_key_input TEXT)
 RETURNS UUID AS $$
 DECLARE
     user_uuid UUID;
+    key_count INTEGER;
 BEGIN
-    SELECT user_id INTO user_uuid
-    FROM user_api_keys
-    WHERE api_key = api_key_input AND is_active = true;
+    RAISE LOG 'Validating API key (first 8 chars: %)', LEFT(api_key_input, 8) || '...';
     
-    -- Update last_used_at timestamp
+    -- Check if the API key exists and is active
+    SELECT user_id, COUNT(*) INTO user_uuid, key_count
+    FROM user_api_keys
+    WHERE api_key = api_key_input AND is_active = true
+    GROUP BY user_id;
+    
+    RAISE LOG 'API key lookup - Found % matching active keys for user: %', 
+        COALESCE(key_count, 0), 
+        user_uuid;
+    
+    -- Update last_used_at timestamp if key is valid
     IF user_uuid IS NOT NULL THEN
         UPDATE user_api_keys 
         SET last_used_at = NOW() 
-        WHERE api_key = api_key_input;
+        WHERE api_key = api_key_input
+        RETURNING user_id INTO user_uuid;
+        
+        RAISE LOG 'Updated last_used_at for API key (first 8 chars: %)', 
+            LEFT(api_key_input, 8) || '...';
+    ELSE
+        -- Log failed attempts for debugging
+        RAISE LOG 'Invalid or inactive API key provided (first 8 chars: %)', 
+            LEFT(api_key_input, 8) || '...';
     END IF;
     
     RETURN user_uuid;
@@ -191,5 +221,102 @@ BEGIN
     VALUES (current_user_id, p_api_key, p_name);
     
     RETURN p_api_key;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to upsert design tokens with proper security context
+CREATE OR REPLACE FUNCTION upsert_design_token(
+    p_name TEXT,
+    p_value TEXT,
+    p_type TEXT,
+    p_description TEXT,
+    p_user_id UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_token_id UUID;
+    v_was_created BOOLEAN := FALSE;
+    v_result JSONB;
+    v_current_user_id UUID;
+    v_existing_token_id UUID;
+    v_is_service_role BOOLEAN;
+BEGIN
+    -- Log input parameters
+    RAISE LOG 'upsert_design_token called with: name=%, type=%, user_id=%', p_name, p_type, p_user_id;
+    
+    -- Check if we're running as service role
+    v_is_service_role := current_setting('role') = 'service_role';
+    
+    -- Get current user ID for debugging (skip if service role)
+    IF NOT v_is_service_role THEN
+        v_current_user_id := auth.uid();
+        RAISE LOG 'Current auth.uid(): %', v_current_user_id;
+        
+        -- Check if the user is authorized (either the token owner or an admin)
+        IF p_user_id IS NULL OR p_user_id != v_current_user_id THEN
+            RAISE EXCEPTION 'Not authorized to modify tokens for this user. Requested user: %, Authenticated user: %', 
+                p_user_id, v_current_user_id;
+        END IF;
+    ELSE
+        RAISE LOG 'Running with service role, skipping user validation';
+    END IF;
+    
+    -- Check if token exists (case-insensitive comparison)
+    SELECT id INTO v_existing_token_id 
+    FROM design_tokens 
+    WHERE LOWER(name) = LOWER(p_name) AND user_id = p_user_id
+    LIMIT 1;
+    
+    -- If found by case-insensitive match but not exact match, we'll update the name to match the exact case
+    IF v_existing_token_id IS NOT NULL THEN
+        -- Update the name to match the exact case from the input
+        UPDATE design_tokens
+        SET name = p_name
+        WHERE id = v_existing_token_id AND name != p_name;
+    END IF;
+    
+    -- Try to update or insert token
+    IF v_existing_token_id IS NOT NULL THEN
+        RAISE LOG 'Updating existing token: % (ID: %)', p_name, v_existing_token_id;
+        
+        UPDATE design_tokens
+        SET 
+            value = p_value,
+            type = p_type,
+            description = p_description,
+            updated_at = NOW()
+        WHERE 
+            id = v_existing_token_id
+        RETURNING id INTO v_token_id;
+        
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Failed to update token: %', p_name;
+        END IF;
+        
+        RAISE LOG 'Successfully updated token: % (ID: %)', p_name, v_token_id;
+    ELSE
+        RAISE LOG 'Inserting new token: % for user: %', p_name, p_user_id;
+        
+        INSERT INTO design_tokens (name, value, type, description, user_id, created_at, updated_at)
+        VALUES (p_name, p_value, p_type, p_description, p_user_id, NOW(), NOW())
+        RETURNING id INTO v_token_id;
+        
+        IF v_token_id IS NULL THEN
+            RAISE EXCEPTION 'Failed to insert token: %', p_name;
+        END IF;
+        
+        v_was_created := TRUE;
+        RAISE LOG 'Successfully inserted token: % (ID: %)', p_name, v_token_id;
+    END IF;
+    
+    -- Return the result
+    v_result := jsonb_build_object(
+        'id', v_token_id,
+        'name', p_name,
+        'was_created', v_was_created,
+        'timestamp', NOW()
+    );
+    
+    RETURN v_result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -12,11 +12,7 @@ import { useAuth } from '../contexts/AuthContext'
 const TokenManagement = () => {
   const { user } = useAuth()
   const [tokens, setTokens] = useState([])
-  const [changedTokens, setChangedTokens] = useState(() => {
-    // Load changed tokens from localStorage on initial render
-    const savedChangedTokens = localStorage.getItem('changedTokens')
-    return new Set(savedChangedTokens ? JSON.parse(savedChangedTokens) : [])
-  })
+  const [changedTokens, setChangedTokens] = useState(new Set())
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingToken, setEditingToken] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -28,28 +24,6 @@ const TokenManagement = () => {
     } else {
       setTokens([])
     }
-    
-    // Listen for messages from Figma plugin
-    const handleMessage = (event) => {
-      // Only process messages from our own origin
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data && event.data.type === 'mark-tokens-changed' && event.data.tokenIds) {
-        // Add the token IDs to the changedTokens set
-        setChangedTokens(prev => {
-          const updated = new Set(prev);
-          event.data.tokenIds.forEach(id => updated.add(id));
-          return updated;
-        });
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
-    
-    // Clean up event listener
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
   }, [user])
 
   const loadTokensFromSupabase = async () => {
@@ -85,54 +59,26 @@ const TokenManagement = () => {
     setIsDialogOpen(true)
   }
 
-  // Save changedTokens to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('changedTokens', JSON.stringify(Array.from(changedTokens)))
-  }, [changedTokens])
-
+  // In TokenManagement.jsx
   const handleSaveToken = async (tokenData) => {
-    setIsLoading(true)
     try {
-      if (editingToken) {
-        // Update existing token in Supabase
-        const result = await supabaseTokenService.updateToken(editingToken.id, tokenData)
-        if (result.success) {
-          setTokens(prev => prev.map(token => 
-            token.id === editingToken.id ? result.data : token
-          ))
-          setChangedTokens(prev => {
-            const updated = new Set(prev)
-            updated.add(result.data.id)
-            return updated
-          })
-          toast.success('Token updated successfully')
-          sendSlackNotification([result.data], 'updated')
-        } else {
-          throw new Error(result.error)
-        }
+      const result = await supabaseTokenService.createToken({
+        ...tokenData,
+        user_id: user.id,
+        source: 'web'
+      });
+      
+      if (result.success) {
+        toast.success(`Token ${result.wasUpdated ? 'updated' : 'created'} successfully`);
+        loadTokensFromSupabase();
       } else {
-        // Create new token in Supabase
-        const result = await supabaseTokenService.createToken(tokenData)
-        if (result.success) {
-          setTokens(prev => [...prev, result.data])
-          setChangedTokens(prev => {
-            const updated = new Set(prev)
-            updated.add(result.data.id)
-            return updated
-          })
-          toast.success('Token created successfully')
-          sendSlackNotification([result.data], 'created')
-        } else {
-          throw new Error(result.error)
-        }
+        throw new Error(result.error || 'Failed to save token');
       }
     } catch (error) {
-      console.error('Error saving token:', error)
-      toast.error(`Failed to save token: ${error.message}`)
-    } finally {
-      setIsLoading(false)
+      console.error('Error saving token:', error);
+      toast.error(`Error: ${error.message}`);
     }
-  }
+  };
 
   const handleDeleteToken = async (tokenId) => {
     if (window.confirm('Are you sure you want to delete this token?')) {
@@ -173,9 +119,6 @@ const TokenManagement = () => {
     try {
       // Get only changed tokens
       const tokensToSync = tokens.filter(token => changedTokens.has(token.id))
-      
-      // Clear changed tokens after successful sync
-      setChangedTokens(new Set())
       
       // Create Figma plugin interface
       const figmaPluginCode = generateFigmaPluginCode(tokensToSync)

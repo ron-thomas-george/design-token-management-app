@@ -111,12 +111,13 @@ figma.ui.onmessage = async (msg) => {
       currentTokens = tokens;
       
       // Create both variables and visualization
-      await createTokenVariables(tokens);
+      const { created, updated } = await createTokenVariables(tokens);
       await createTokensVisualization(tokens);
       
       figma.ui.postMessage({ 
         type: 'success', 
-        message: `Successfully imported ${tokens.length} Fragmento tokens as variables and visualization!` 
+        message: `Successfully imported ${tokens.length} tokens (${created} created, ${updated} updated) as variables and visualization!`,
+        counts: { created, updated }
       });
 
     } catch (error) {
@@ -131,11 +132,12 @@ figma.ui.onmessage = async (msg) => {
       const tokens = msg.tokens;
       currentTokens = tokens;
       
-      await createTokenVariables(tokens);
+      const { created, updated } = await createTokenVariables(tokens);
       
       figma.ui.postMessage({ 
         type: 'success', 
-        message: `Successfully created ${tokens.length} Fragmento token variables!` 
+        message: `Successfully processed ${tokens.length} tokens (${created} created, ${updated} updated)!`,
+        counts: { created, updated }
       });
 
     } catch (error) {
@@ -172,16 +174,7 @@ figma.ui.onmessage = async (msg) => {
       const tokensToSync = [...changes.added, ...changes.modified];
       
       if (tokensToSync.length > 0) {
-        const response = await pushTokensToApp(tokensToSync);
-        
-        // If we have tokens in the response, mark them as changed in the web app
-        if (response && response.tokens && response.tokens.length > 0) {
-          // Send message to web app to mark these tokens as changed
-          figma.ui.postMessage({
-            type: 'mark-tokens-changed',
-            tokenIds: response.tokens.map(token => token.id)
-          });
-        }
+        await pushTokensToApp(tokensToSync);
       }
       
       // Handle deletions if needed (could be implemented later)
@@ -193,8 +186,7 @@ figma.ui.onmessage = async (msg) => {
       const changeCount = changes.added.length + changes.modified.length + changes.deleted.length;
       figma.ui.postMessage({
         type: 'success',
-        message: `Successfully pushed ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`,
-        tokenCount: tokensToSync.length
+        message: `Successfully pushed ${changeCount} changes (${changes.added.length} added, ${changes.modified.length} modified, ${changes.deleted.length} deleted)`
       });
 
     } catch (error) {
@@ -273,52 +265,53 @@ async function fetchTokensFromSupabase() {
 async function extractFigmaVariables() {
   const figmaTokens = [];
   
-  // Get all local variable collections asynchronously
-  const collections = await figma.variables.getLocalVariableCollectionsAsync();
-  
-  // Filter for Fragmento collections
-  const fragmentoCollections = collections.filter(collection => 
-    collection.name.startsWith('Fragmento - ')
-  );
-  
-  for (const collection of fragmentoCollections) {
-    // Extract token type from collection name (e.g., "Fragmento - Colors" -> "colors")
-    const type = collection.name.replace('Fragmento - ', '').toLowerCase();
+  try {
+    // Get all local variable collections asynchronously
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
     
-    // Get all variables in this collection asynchronously
-    const variables = [];
-    for (const id of collection.variableIds) {
-      try {
-        const variable = await figma.variables.getVariableByIdAsync(id);
-        if (variable) variables.push(variable);
-      } catch (error) {
-        console.warn(`Failed to get variable with ID ${id}:`, error);
+    // Filter for Fragmento collections
+    const fragmentoCollections = collections.filter(collection => 
+      collection.name && collection.name.startsWith('Fragmento - ')
+    );
+  
+    for (const collection of fragmentoCollections) {
+      // Extract token type from collection name (e.g., "Fragmento - Colors" -> "colors")
+      const type = collection.name.replace('Fragmento - ', '').toLowerCase();
+      
+      // Get all variables in this collection asynchronously
+      const variablePromises = collection.variableIds.map(id => 
+        figma.variables.getVariableByIdAsync(id)
+      );
+      const variables = (await Promise.all(variablePromises)).filter(Boolean);
+      
+      for (const variable of variables) {
+        // Get the default mode value
+        const modes = Object.keys(variable.valuesByMode);
+        if (modes.length === 0) continue;
+        
+        const defaultMode = modes[0];
+        const value = variable.valuesByMode[defaultMode];
+        
+        // Convert Figma value to token format
+        let tokenValue = convertFigmaValueToToken(value, type);
+        
+        if (tokenValue !== null) {
+          figmaTokens.push({
+            name: variable.name,
+            value: tokenValue,
+            type: type,
+            description: variable.description || `${type} token from Figma`
+          });
+        }
       }
     }
     
-    for (const variable of variables) {
-      // Get the default mode value
-      const modes = Object.keys(variable.valuesByMode);
-      if (modes.length === 0) continue;
-      
-      const defaultMode = modes[0];
-      const value = variable.valuesByMode[defaultMode];
-      
-      // Convert Figma value to token format
-      let tokenValue = convertFigmaValueToToken(value, type);
-      
-      if (tokenValue !== null) {
-        figmaTokens.push({
-          name: variable.name,
-          value: tokenValue,
-          type: type,
-          description: variable.description || `${type} token from Figma`
-        });
-      }
-    }
+    return figmaTokens;
+  } catch (error) {
+    console.error('Error extracting Figma variables:', error);
+    figma.notify('Error extracting variables. See console for details.');
+    return [];
   }
-  
-  return figmaTokens;
 }
 
 // Convert Figma variable values to token format
@@ -786,6 +779,7 @@ async function createTokenVariables(tokens) {
     const allVariables = await figma.variables.getLocalVariablesAsync();
     const existingVariables = [];
     
+    // We need to check each variable's collection asynchronously
     for (const variable of allVariables) {
       try {
         const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
@@ -793,7 +787,7 @@ async function createTokenVariables(tokens) {
           existingVariables.push(variable);
         }
       } catch (error) {
-        console.warn(`Failed to get collection for variable ${variable.name}:`, error);
+        console.warn(`Error checking variable collection for ${variable.name}:`, error);
       }
     }
 
@@ -810,28 +804,35 @@ async function createTokenVariables(tokens) {
 
     // Create or get variable collections for each token type
     const collections = {};
+    let variablesCreated = 0;
+    let variablesUpdated = 0;
     
     for (const [type, typeTokens] of Object.entries(tokensByType)) {
       // Create collection for this token type
       const collectionName = `Fragmento - ${type.charAt(0).toUpperCase() + type.slice(1)}`;
       
-      // Check if collection already exists asynchronously
-      const collections = await figma.variables.getLocalVariableCollectionsAsync();
-      let collection = collections.find(c => c.name === collectionName);
+      // Check if collection already exists
+      const allCollections = await figma.variables.getLocalVariableCollectionsAsync();
+      let collection = allCollections.find(c => c.name === collectionName);
       
       if (!collection) {
-        collection = await figma.variables.createVariableCollectionAsync(collectionName);
+        collection = figma.variables.createVariableCollection(collectionName);
       }
       
       collections[type] = collection;
       
       // Create variables for each token in this type
       for (const token of typeTokens) {
-        await createVariableForToken(token, collection);
+        const result = await createVariableForToken(token, collection);
+        if (result === 'created') variablesCreated++;
+        else if (result === 'updated') variablesUpdated++;
       }
     }
     
-    console.log(`Created variables in ${Object.keys(collections).length} collections`);
+    console.log(`Processed ${variablesCreated + variablesUpdated} variables (${variablesCreated} created, ${variablesUpdated} updated) in ${Object.keys(collections).length} collections`);
+    
+    // Return the actual counts for accurate reporting
+    return { created: variablesCreated, updated: variablesUpdated };
     
   } catch (error) {
     console.error('Error creating variables:', error);
@@ -842,20 +843,22 @@ async function createTokenVariables(tokens) {
 // Create a Figma variable for a specific token
 async function createVariableForToken(token, collection) {
   try {
-    // Check if variable already exists asynchronously
-    const localVariables = await figma.variables.getLocalVariablesAsync();
-    const existingVariable = localVariables.find(
-      v => v.name === token.name && v.variableCollectionId === collection.id
+    // Check if variable already exists
+    const allVariables = await figma.variables.getLocalVariablesAsync();
+    const existingVariable = allVariables.find(v => 
+      v.name === token.name && v.variableCollectionId === collection.id
     );
     
     let variable;
     
+    let wasCreated = false;
     if (existingVariable) {
       variable = existingVariable;
     } else {
       // Determine variable type based on token type
       const variableType = getVariableTypeForToken(token);
-      variable = await figma.variables.createVariableAsync(token.name, collection.id, variableType);
+      variable = figma.variables.createVariable(token.name, collection, variableType);
+      wasCreated = true;
     }
     
     // Set variable description
@@ -866,7 +869,11 @@ async function createVariableForToken(token, collection) {
     // Set variable value based on token type
     const value = parseTokenValueForVariable(token);
     const defaultMode = collection.modes[0];
-    await variable.setValueForModeAsync(defaultMode.modeId, value);
+    
+    variable.setValueForMode(defaultMode.modeId, value);
+    
+    // Return whether this was a new variable or an update
+    return wasCreated ? 'created' : 'updated';
     
     console.log(`Created/updated variable: ${token.name} = ${token.value}`);
     
