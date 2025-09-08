@@ -748,7 +748,16 @@
       }
       
       if (msg.type === 'tokens-fetched') {
-        tokens = msg.tokens || [];
+        console.log('Received tokens:', msg.tokens); // Debug log
+        
+        // Ensure we have a valid tokens array
+        if (!msg.tokens || !Array.isArray(msg.tokens)) {
+          console.error('Invalid tokens data received:', msg.tokens);
+          showStatus('Error: Invalid token data received from server', 'error');
+          return;
+        }
+        
+        tokens = msg.tokens;
         fetchBtn.disabled = false;
         checkChangesBtn.disabled = false;
         importBtn.disabled = tokens.length === 0;
@@ -757,9 +766,14 @@
         // Enable push button - it works independently of fetched tokens
         pushBtn.disabled = false;
         
-        updateConnectionStatus(true, `${tokens.length} tokens loaded`);
+        if (tokens.length > 0) {
+          updateConnectionStatus(true, `${tokens.length} tokens loaded`, 'success');
+          showStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
+        } else {
+          updateConnectionStatus(true, 'No tokens found', 'warning');
+          showStatus('No tokens found in your account', 'warning');
+        }
         updateStats(tokens.length);
-        showStatus(`Fetched ${tokens.length} tokens successfully`, 'success');
       }
       
       if (msg.type === 'changes-detected') {

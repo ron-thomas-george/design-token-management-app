@@ -170,8 +170,8 @@ figma.ui.onmessage = async (msg) => {
         return;
       }
 
-      // Only push changed tokens
-      const tokensToSync = [...changes.added, ...changes.modified];
+      // Only push changed tokens (using concat instead of spread operator)
+      const tokensToSync = changes.added.concat(changes.modified);
       
       if (tokensToSync.length > 0) {
         await pushTokensToApp(tokensToSync);
@@ -233,30 +233,119 @@ figma.ui.onmessage = async (msg) => {
 
 // Fetch tokens directly from Supabase
 async function fetchTokensFromSupabase() {
-  debugger;
+  console.log('Fetching tokens from Supabase...');
+  
   if (!supabaseConfig) {
-    throw new Error('Supabase not configured');
+    const error = new Error('Supabase not configured');
+    console.error(error);
+    throw error;
   }
 
-  try {
-    const response = await fetch(`${supabaseConfig.url}/rest/v1/design_tokens?select=*&order=created_at.desc`, {
-      method: 'GET',
-      headers: {
-        'apikey': supabaseConfig.key,
-        'Authorization': `Bearer ${supabaseConfig.key}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
+  const requestUrl = `${supabaseConfig.url}/rest/v1/design_tokens?select=*&order=created_at.desc`;
+  const requestOptions = {
+    method: 'GET',
+    headers: {
+      'apikey': supabaseConfig.key,
+      'Authorization': `Bearer ${supabaseConfig.key}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
     }
+  };
 
-    return await response.json();
+  // Create headers object for logging (without sensitive data)
+  const logHeaders = Object.assign({}, requestOptions.headers);
+  logHeaders['apikey'] = '[REDACTED]';
+  logHeaders['Authorization'] = '[REDACTED]';
+  
+  console.log('Sending request to Supabase:', requestUrl);
+  console.log('Request headers:', JSON.stringify(logHeaders));
+
+  let response;
+  try {
+    response = await fetch(requestUrl, requestOptions);
+    console.log('Received response with status:', response.status);
+  } catch (fetchError) {
+    console.error('Network fetch error:', {
+      name: fetchError.name,
+      message: fetchError.message,
+      stack: fetchError.stack
+    });
+    throw new Error(`Network error: ${fetchError.message}`);
+  }
+
+  // Handle non-2xx responses
+  if (!response.ok) {
+    let errorDetails = '';
+    try {
+      const errorData = await response.json().catch(() => ({}));
+      errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+    } catch (e) {
+      errorDetails = await response.text().catch(() => 'Could not parse error details');
+    }
+    
+    console.error('Supabase error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      details: errorDetails
+    });
+    
+    const errorMap = {
+      401: 'Authentication failed. Please check your Supabase credentials.',
+      403: 'Access denied. You do not have permission to access these tokens.',
+      404: 'Tokens endpoint not found. Please check your Supabase URL.',
+      500: 'Supabase server error. Please try again later.'
+    };
+    
+    throw new Error(errorMap[response.status] || `Supabase error: ${response.status} ${response.statusText}`);
+  }
+
+  // Parse and validate response
+  try {
+    const result = await response.json();
+    console.log('Raw Supabase response:', JSON.stringify(result, null, 2));
+    
+    // Supabase returns an array directly or an object with a 'data' property
+    const tokens = Array.isArray(result) 
+      ? result 
+      : (result && Array.isArray(result.data) ? result.data : []);
+    
+    console.log(`Found ${tokens.length} tokens in Supabase response`);
+    
+    // Filter out invalid tokens
+    const validTokens = [];
+    const invalidTokens = [];
+    
+    for (const token of tokens) {
+      if (token && 
+          typeof token === 'object' && 
+          'name' in token && 
+          'value' in token && 
+          'type' in token) {
+        validTokens.push(token);
+      } else {
+        console.warn('Skipping invalid token format from Supabase:', token);
+        invalidTokens.push(token);
+      }
+    }
+    
+    if (invalidTokens.length > 0) {
+      console.warn(`Filtered out ${invalidTokens.length} invalid tokens from Supabase`);
+    }
+    
+    console.log(`Successfully processed ${validTokens.length} valid tokens from Supabase`);
+    return validTokens;
+    
   } catch (error) {
-    console.error('Supabase fetch error:', error);
-    throw new Error(`Failed to connect to Supabase: ${error.message}`);
+    console.error('Supabase fetch error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Rethrow with more context
+    error.message = `Failed to fetch tokens from Supabase: ${error.message}`;
+    throw error;
   }
 }
 
@@ -349,7 +438,7 @@ function detectFigmaVariableChanges(previousSnapshot, currentTokens) {
 
   // If no previous snapshot, all current tokens are new
   if (!previousSnapshot || previousSnapshot.length === 0) {
-    changes.added = [...currentTokens];
+    changes.added = currentTokens.slice(); // Create a shallow copy of the array
     return changes;
   }
 
@@ -389,84 +478,220 @@ async function initializeFigmaVariablesSnapshot() {
 
 // Push tokens to the app via API
 async function pushTokensToApp(tokens) {
-  try {
-    console.log('Pushing tokens to app...', tokens);
-    
-    const headers = {
+  console.log('Pushing tokens to app...');
+  
+  if (!userApiKey) {
+    const error = new Error('API key is required to push tokens');
+    console.error('No API key available');
+    throw error;
+  }
+
+  const requestUrl = 'https://design-token-management-app.vercel.app/api/tokens';
+  const requestOptions = {
+    method: 'POST',
+    headers: {
       'Content-Type': 'application/json',
-    };
+      'X-API-Key': userApiKey,
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify({ tokens })
+  };
 
-    // Add API key if available
-    if (userApiKey) {
-      headers['X-API-Key'] = userApiKey;
+  // Create headers object for logging (without sensitive data)
+  const logHeaders = Object.assign({}, requestOptions.headers);
+  logHeaders['X-API-Key'] = '[REDACTED]';
+  
+  console.log('Sending request to:', requestUrl);
+  console.log('Request headers:', JSON.stringify(logHeaders));
+  console.log('Token count being sent:', tokens.length);
+
+  let response;
+  try {
+    response = await fetch(requestUrl, requestOptions);
+    console.log('Received response with status:', response.status);
+  } catch (fetchError) {
+    console.error('Network fetch error:', {
+      name: fetchError.name,
+      message: fetchError.message,
+      stack: fetchError.stack
+    });
+    throw new Error(`Network error: ${fetchError.message}`);
+  }
+
+  // Handle non-2xx responses
+  if (!response.ok) {
+    let errorDetails = '';
+    try {
+      const errorData = await response.json().catch(() => ({}));
+      errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+    } catch (e) {
+      errorDetails = await response.text().catch(() => 'Could not parse error details');
     }
     
-    const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({ tokens })
+    console.error('API error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      details: errorDetails
     });
+    
+    const errorMap = {
+      400: 'Invalid token data. Please check the token format and try again.',
+      401: 'Authentication failed. Please check your API key and try again.',
+      403: 'Access denied. You do not have permission to update these tokens.',
+      500: 'Server error. Please try again later.'
+    };
+    
+    throw new Error(errorMap[response.status] || `API error: ${response.status} ${response.statusText}`);
+  }
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API push error:', error);
-    throw new Error(`Failed to push tokens to app: ${error.message}`);
+  // Parse and validate response
+  try {
+    const data = await response.json();
+    console.log('Successfully pushed tokens to app');
+    return data;
+  } catch (parseError) {
+    console.error('Failed to parse API response:', {
+      error: parseError,
+      responseText: await response.text().catch(() => 'Could not read response text')
+    });
+    throw new Error('Failed to parse server response');
   }
 }
 
-// Fallback API fetch
+// Fetch tokens from the API endpoint
 async function fetchTokensFromAPI() {
+  console.log('Fetching tokens from API...');
+  
   try {
-    console.log('Attempting to fetch from API...');
-    console.log('Current userApiKey:', userApiKey ? userApiKey.substring(0, 10) + '...' : 'null');
+    // Basic validation
+    if (!userApiKey) {
+      const error = new Error('API key is required to fetch tokens');
+      console.error('No API key available');
+      throw error;
+    }
+
+    console.log('Using API key for authentication');
     
-    const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+    // Prepare request
+    const requestUrl = 'https://design-token-management-app.vercel.app/api/tokens';
+    const requestOptions = {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-API-Key': userApiKey
+      }
     };
 
-    // Add API key if available
-    if (userApiKey) {
-      headers['X-API-Key'] = userApiKey;
-      console.log('Added API key to headers');
-    } else {
-      console.log('No API key available, making unauthenticated request');
+    console.log('Sending request to:', requestUrl);
+    console.log('Request headers:', JSON.stringify(requestOptions.headers));
+    
+    let response;
+    try {
+      response = await fetch(requestUrl, requestOptions);
+      console.log('Received response with status:', response.status);
+    } catch (fetchError) {
+      console.error('Network fetch error:', {
+        name: fetchError.name,
+        message: fetchError.message,
+        stack: fetchError.stack
+      });
+      throw new Error(`Network error: ${fetchError.message}`);
     }
-
-    const response = await fetch('https://design-token-management-app.vercel.app/api/tokens', {
-      method: 'GET',
-      headers: headers
-    });
     
-    console.log('API Response status:', response.status);
-    
+    // Handle non-2xx responses
     if (!response.ok) {
-      const errorText = await response.text();
-      console.log('API error response:', errorText);
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      let errorDetails = '';
+      try {
+        const errorData = await response.json().catch(() => ({}));
+        errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+      } catch (e) {
+        errorDetails = await response.text().catch(() => 'Could not parse error details');
+      }
+      
+      console.error('API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        headers: Object.fromEntries(response.headers.entries()),
+        details: errorDetails
+      });
+      
+      // Provide user-friendly error messages
+      const errorMap = {
+        401: 'Authentication failed. Please check your API key and try again.',
+        403: 'Access denied. You do not have permission to access these tokens.',
+        404: 'Tokens endpoint not found. The server may be misconfigured.',
+        500: 'Server error. Please try again later.'
+      };
+      
+      throw new Error(errorMap[response.status] || `API error: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
-    console.log('API Response data:', data);
-    return data;
+    // Parse and validate response
+    try {
+      const result = await response.json();
+      console.log('Raw API response:', JSON.stringify(result, null, 2));
+      
+      // The API returns tokens in a 'tokens' property
+      const tokens = result && result.tokens && Array.isArray(result.tokens) 
+        ? result.tokens 
+        : [];
+      
+      console.log(`Found ${tokens.length} tokens in response`);
+      
+      // Filter out invalid tokens
+      const validTokens = [];
+      const invalidTokens = [];
+      
+      for (const token of tokens) {
+        if (token && 
+            typeof token === 'object' && 
+            'name' in token && 
+            'value' in token && 
+            'type' in token) {
+          validTokens.push(token);
+        } else {
+          console.warn('Skipping invalid token format from API:', token);
+          invalidTokens.push(token);
+        }
+      }
+      
+      if (invalidTokens.length > 0) {
+        console.warn(`Filtered out ${invalidTokens.length} invalid tokens`);
+      }
+      
+      console.log(`Successfully processed ${validTokens.length} valid tokens from API`);
+      return validTokens;
+      
+    } catch (parseError) {
+      console.error('Failed to parse API response:', {
+        error: parseError,
+        responseText: await response.text().catch(() => 'Could not read response text')
+      });
+      throw new Error('Failed to parse server response');
+    }
+    
   } catch (error) {
-    console.error('API fetch error details:', {
+    console.error('API fetch error:', {
       message: error.message,
-      stack: error.stack,
       name: error.name,
+      stack: error.stack,
       cause: error.cause
     });
     
-    // Check if it's a network error
+    // Provide more user-friendly error messages
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(`Network error: Unable to connect to API. Check internet connection.`);
+      throw new Error('Network error: Unable to connect to the server. Please check your internet connection.');
     }
     
-    throw new Error(`Failed to fetch from API: ${error.message || 'Unknown error'}`);
+    // Re-throw with more context if needed
+    if (!error.message.includes('API error')) {
+      error.message = `Failed to fetch tokens: ${error.message}`;
+    }
+    
+    throw error;
   }
 }
 

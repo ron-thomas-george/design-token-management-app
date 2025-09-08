@@ -72,7 +72,7 @@ const TokenDialog = ({ isOpen, onClose, onSave, editToken = null }) => {
       onSave({
         ...formData,
         id: editToken?.id || Date.now().toString(),
-        updatedAt: new Date().toISOString()
+        updated_at: new Date().toISOString()
       })
       onClose()
     }

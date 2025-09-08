@@ -2,10 +2,26 @@ import { createClient } from '@supabase/supabase-js';
 
 // Vercel API endpoint to provide tokens to Figma plugin
 export default async function handler(req, res) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Set CORS headers based on the request origin
+  const allowedOrigins = [
+    'https://www.figma.com',
+    'https://*.figma.com',
+    'http://localhost:3000',
+    'https://design-token-management-app.vercel.app'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.some(allowed => 
+    origin === allowed || 
+    (allowed.includes('*') && new RegExp(allowed.replace('*', '.*')).test(origin))
+  )) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key, x-api-key, Accept, Accept-Language, Content-Language');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin, Access-Control-Request-Headers, Access-Control-Request-Method');
 
   // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
