@@ -6,7 +6,6 @@ const ApiKeySettings = () => {
   const { user } = useAuth();
   const [apiKeys, setApiKeys] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [newKeyName, setNewKeyName] = useState('Figma Plugin Key');
   const [showNewKey, setShowNewKey] = useState(null);
 
   useEffect(() => {
@@ -50,18 +49,19 @@ const ApiKeySettings = () => {
         .replace(/\+/g, '-')
         .replace(/=/g, '');
       const newApiKey = `frag_${base64Key}`;
+      const keyName = 'Figma Plugin Key';
 
       console.log('Generated API key:', newApiKey.substring(0, 10) + '...');
       console.log('Insert payload:', {
         user_id: user.id,
         api_key: newApiKey,
-        name: newKeyName
+        name: keyName
       });
 
       // Insert directly into user_api_keys table using RPC function to bypass RLS
       const { data, error } = await supabase.rpc('create_api_key', {
         p_api_key: newApiKey,
-        p_name: newKeyName
+        p_name: keyName
       });
 
       console.log('Insert response - data:', data, 'error:', error);
@@ -140,18 +140,11 @@ const ApiKeySettings = () => {
 
       {/* Generate New Key */}
       <div className="mb-6 p-4 bg-[#1a1a1a] rounded-lg border border-gray-700">
-        <h3 className="text-lg font-medium text-white mb-3">Generate New API Key</h3>
-        <div className="flex gap-3 mb-3">
-          <input
-            type="text"
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Key name (e.g., Figma Plugin Key)"
-            className="flex-1 px-3 py-2 bg-[#0f1419] border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-[#3ecf8e]"
-          />
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium text-white">Generate New API Key</h3>
           <button
             onClick={generateApiKey}
-            disabled={isGenerating || !newKeyName.trim()}
+            disabled={isGenerating}
             className="px-4 py-2 bg-[#3ecf8e] text-black font-medium rounded-md hover:bg-[#2db574] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? 'Generating...' : 'Generate Key'}
