@@ -83,6 +83,7 @@ export default async function handler(req, res) {
 // Validate API key and return user ID
 async function validateApiKey(supabaseUrl, supabaseKey, apiKey) {
   try {
+    console.log('Validating API key...');
     const { data, error } = await createClient(supabaseUrl, supabaseKey)
       .from('user_api_keys')
       .select('user_id')
@@ -91,6 +92,15 @@ async function validateApiKey(supabaseUrl, supabaseKey, apiKey) {
 
     if (error || !data) {
       console.error('Invalid API key:', error);
+      return null;
+    }
+
+    // Log the user_id for debugging
+    console.log('API key validated for user_id:', data.user_id, 'Type:', typeof data.user_id);
+    
+    // Ensure the user_id is a valid UUID
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.user_id)) {
+      console.error('Invalid UUID format for user_id:', data.user_id);
       return null;
     }
 
@@ -131,10 +141,18 @@ async function handlePostTokens(req, res) {
     if (apiKey) {
       userId = await validateApiKey(supabaseUrl, supabaseKey, apiKey);
       if (!userId) {
-        return res.status(401).json({ error: 'Invalid API key' });
+        console.error('Failed to validate API key or invalid user ID format');
+        return res.status(401).json({ 
+          error: 'Invalid API key or user configuration',
+          details: 'The provided API key is either invalid or the associated user account is not properly configured.'
+        });
       }
+      console.log('Using user ID for token operations:', userId);
     } else {
-      return res.status(401).json({ error: 'API key is required' });
+      return res.status(401).json({ 
+        error: 'API key is required',
+        details: 'Please provide a valid API key in the X-API-Key header.'
+      });
     }
 
     // Process tokens with upsert logic
