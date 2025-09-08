@@ -183,13 +183,24 @@
       font-size: 12px;
       margin-bottom: 10px;
       color: #cccccc;
+      gap: 8px;
     }
     
     .status-dot {
+      flex-shrink: 0;
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      margin-right: 8px;
+    }
+    
+    .status-text {
+      white-space: nowrap;
+    }
+    
+    .connection-details {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     
     .status-dot.connected {
@@ -403,10 +414,8 @@
     <!-- Connection Status -->
     <div class="section">
       <div class="connection-status">
-        <div class="status-indicator">
-          <div class="status-dot" id="statusDot"></div>
-          <span id="statusText">Checking connection...</span>
-        </div>
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText" class="status-text">Checking connection...</span>
         <div class="connection-details hidden" id="connectionDetails"></div>
       </div>
     </div>
@@ -669,7 +678,7 @@
       }
       
       if (details) {
-        connectionDetails.textContent = details;
+        connectionDetails.textContent = `• ${details}`;
         connectionDetails.classList.remove('hidden');
       } else {
         connectionDetails.classList.add('hidden');
